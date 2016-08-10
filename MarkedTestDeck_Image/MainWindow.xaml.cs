@@ -8,11 +8,8 @@ using System.Globalization;
 using CountyId.DAL;
 using System.Linq;
 using System.Threading;
-using System.Windows.Controls;
-using System.ComponentModel;
 using System.Collections.Generic;
 using System.Data;
-using System.Threading.Tasks;
 
 namespace MarkedTestDeck_Image
 {
@@ -216,7 +213,7 @@ namespace MarkedTestDeck_Image
                     delUpdateUITextbox mydel = new delUpdateUITextbox(UpdateUITextbox);
 
                     dl.FileName = file;
-                    dl.PositionDT = dl.GeneratePositionDataTable(dt);
+                    dl.PositionDT = dl.GeneratePositionDataTable();
                     PDFLoader pdf = new PDFLoader(pdfPath, dl.RetrieveFileName(), includeWriteIns);
                     SetTestDeckIlk(pdf);
 

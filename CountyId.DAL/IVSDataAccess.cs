@@ -43,11 +43,8 @@ namespace CountyId.DAL
                         TabulationSystem = Tabulation
                     };
 
-                    //System.Data.Objects.RefreshMode refresh = new System.Data.Objects.RefreshMode();
-
                     ctx.Customers.AddObject(customerInstance);
                     ctx.ObjectStateManager.ChangeObjectState(customerInstance, System.Data.EntityState.Added);
-                    //ctx.Refresh(refresh, AddCustomersToList());
                     ctx.SaveChanges();
 
                     Customers = AddCustomersToList();
@@ -57,7 +54,7 @@ namespace CountyId.DAL
                 catch (Exception ex)
                 {
                     MessageBox.Show($"Error with inserting data to the database \n\n{ex.Message} \n\n Please contact system administrator",
-                        "ERROR MESSAGE", MessageBoxButton.OK, MessageBoxImage.Error);
+                        "IVS Data Access Class ERROR", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }            
         }
@@ -75,7 +72,7 @@ namespace CountyId.DAL
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Something Happened");
+                MessageBox.Show(ex.Message, "IVS Data Access Class ERROR");
             }
             return Customers;
         }

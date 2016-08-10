@@ -49,7 +49,7 @@ namespace RunPdfProgram
 
                 dl.FileName = file;
 
-                dl.PositionDT = dl.GeneratePositionDataTable(dt);
+                dl.PositionDT = dl.GeneratePositionDataTable();
 
                 PDFLoader pdf = new PDFLoader(pdfPath, dl.RetrieveFileName(), includeWriteIns);
 

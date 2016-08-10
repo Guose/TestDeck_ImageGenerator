@@ -1,11 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Data;
 using System.IO;
-using System.Windows;
 using Microsoft.Win32;
 
 namespace TestDeck_ImageGenerator
@@ -67,7 +63,6 @@ namespace TestDeck_ImageGenerator
                             rowIndex = OvalData.Rows.IndexOf(row);
                             SetRowsToDataTable(count, sortKey, rowIndex);
 
-                            // arguement should be rotation which is selected on UI
                             LogicAndAccuracyRotation(Rotation);                            
                             break;
                         }
@@ -139,12 +134,11 @@ namespace TestDeck_ImageGenerator
             }            
         }
 
-        private void LogicAndAccuracyRotation(int x) // x equals rotation LA5 or LA2
+        private void LogicAndAccuracyRotation(int x) // x equals rotation i.e. LA5 or LA2
         {            
             int loops = 1;
             int sequenceNum = 1 + DataAccess.Instance.VotePositionTable.Rows.Count;
-            int row = DataAccess.Instance.VotePositionTable.Rows.Count;
-            
+            int row = DataAccess.Instance.VotePositionTable.Rows.Count;            
 
             foreach (DataRow item in TempDt.Rows)
             {
@@ -165,7 +159,6 @@ namespace TestDeck_ImageGenerator
                             sequenceNum++;
                             row++;
                         }
-
                         loops++; 
 
                         if (loops > x)
@@ -177,7 +170,7 @@ namespace TestDeck_ImageGenerator
 
         private string AddIlkToData()
         {
-            // this needs to be flagged by radiobutton from WPF
+            // this is flagged by radiobutton from WPF
             string testdeckIlk = string.Empty;
 
             if (IsLA)
@@ -226,7 +219,7 @@ namespace TestDeck_ImageGenerator
             dlg.DefaultExt = ".txt";
             dlg.Filter = "Text documents (.txt)|*.txt";
 
-            string fileName = path + @"\" + countyId + "-" + AddIlkToData() + "_TESTDECK_GMC.txt"; //dlg.FileName;
+            string fileName = path + @"\" + countyId + "-" + AddIlkToData() + "_TESTDECK_GMC.txt";
             //string newFilename = AddSuffix(path, ".txt", true);
 
             var header = new StringBuilder();
@@ -262,6 +255,5 @@ namespace TestDeck_ImageGenerator
 
             return fileName;
         }
-
     }
 }

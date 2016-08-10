@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.IO;
 using XYCoordinates;
 using System.Linq;
+using System.Windows;
 
 namespace TestDeck_ImageGenerator
 {
@@ -19,8 +19,6 @@ namespace TestDeck_ImageGenerator
         {
 
         }
-        public int[] XCoord { get; set; }
-        public int[] YCoord { get; set; }
         public int MaxNumOfCandidate { get; set; }
         public int IsWriteIn { get; set; }
         public DataTable PositionDT { get; set; }
@@ -29,22 +27,9 @@ namespace TestDeck_ImageGenerator
         public string OvalFileName { get; set; }
         public string FileName { get; set; }
 
-        public List<string> RetrieveArrowDumpFiles()
-        {
-            string[] files = Directory.GetFiles(FilePath, "*.dat");
-            List<string> fileList = new List<string>();
-
-            foreach (string file in files)
-            {
-                fileList.Add(file);
-            }
-            return fileList;
-        }
-
         public List<string> RetrievePdfFileNames(string path)
         {
             DataTable pdfName = new DataTable();
-            //string[] files = Directory.GetFiles(path, "*.pdf");
             List<string> fileList = new List<string>();
 
             IEnumerable<DataRow> pdfFileList = from pdf in OvalDT.AsEnumerable()
@@ -60,33 +45,32 @@ namespace TestDeck_ImageGenerator
             return fileList;
         }
 
-        public void GetCoordinates()
+        public DataTable GeneratePositionDataTable()
         {
-            XCoord = new int[PositionDT.Rows.Count];
-            YCoord = new int[PositionDT.Rows.Count];
-            for (int i = 0; i < PositionDT.Rows.Count; i++)
-            {
-                XCoord[i] = Convert.ToInt32(PositionDT.Rows[i]["XCoord"]);
-                YCoord[i] = Convert.ToInt32(PositionDT.Rows[i]["YCoord"]);
-            }
-        }
-        public DataTable GeneratePositionDataTable(DataTable dt)
-        {
+            DataTable dt = new DataTable();
             ArrowCoordinates xyc = new ArrowCoordinates(OvalDT);
-            dt = xyc.GetXYCoordinates(FileName);
-            
-            dt.Columns.Add("RaceNbr", typeof(int));
-            dt.Columns.Add("RacePosn", typeof(int));
-            dt.Columns.Add("TtlRaceOvals", typeof(int));
-            dt.Columns.Add("RecNbr", typeof(int));
-            dt.Columns.Add("IsWriteIn", typeof(int));
-            dt.Columns.Add("MaxVotes", typeof(int));
 
-            dt = UpdatePositionData(dt);
-            DataView dv = dt.DefaultView;
-            dv.Sort = "RacePosn";
-            dt = dv.ToTable();
+            try
+            {
+                dt = xyc.GetXYCoordinates(FileName);
 
+                dt.Columns.Add("RaceNbr", typeof(int));
+                dt.Columns.Add("RacePosn", typeof(int));
+                dt.Columns.Add("TtlRaceOvals", typeof(int));
+                dt.Columns.Add("RecNbr", typeof(int));
+                dt.Columns.Add("IsWriteIn", typeof(int));
+                dt.Columns.Add("MaxVotes", typeof(int));
+
+                dt = UpdatePositionData(dt);
+                DataView dv = dt.DefaultView;
+                dv.Sort = "RacePosn";
+                dt = dv.ToTable();                
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "ERROR IN: DataLoader.GeneratePositionDataTable");
+                throw;
+            }
             return dt;
         }
 

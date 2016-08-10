@@ -2,8 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 using PdfSharp.Drawing;
 using System.Data;
@@ -53,129 +51,136 @@ namespace TestDeck_ImageGenerator
 
         public void LoadPdfDocument(DataTable dt, DataTable ovaldt, int rotation, string countyID)
         {
-            PositionDT = dt;
-            PdfDocument pdfDoc = PdfSharp.Pdf.IO.PdfReader.Open
-                (PdfPath + PdfFileName, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);         
-
-            PdfDocument pdfNewDoc = new PdfDocument();
-
             string ilk = string.Empty;
-            string date = DateTime.Now.ToString("yyyyddMM");
+            string date = DateTime.Now.ToString("yyyyMMdd");
+            PositionDT = dt;
 
-            MaxNumOfCandidate = Convert.ToInt32(PositionDT.Compute("max(TtlRaceOvals)", string.Empty));
-
-            if (IncludeWriteIns == false && IsLA && MaxNumOfCandidate > 1)
-                MaxNumOfCandidate = MaxNumOfCandidate - 1;
-
-            // gets an array of vote position coordinates
-            GetCoordinates();            
-
-            if (IsQC || IsWHSE)
+            try
             {
-                if (IsQC)
-                    MaxNumOfCandidate = 2;
-                else
-                    MaxNumOfCandidate = 1;
-            }
+                PdfDocument pdfDoc = PdfSharp.Pdf.IO.PdfReader.Open
+                    (PdfPath + PdfFileName, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
+                PdfDocument pdfNewDoc = new PdfDocument();
+                MaxNumOfCandidate = Convert.ToInt32(PositionDT.Compute("max(TtlRaceOvals)", string.Empty));
 
-            for (int pg = 0; pg < MaxNumOfCandidate; pg++)
-            {
-                MaxVotes = Convert.ToInt32(PositionDT.Compute("max(MaxVotes)", string.Empty));
-                Count++;
-                pdfNewDoc.AddPage(pdfDoc.Pages[0]);
-                XGraphics gfx = XGraphics.FromPdfPage(pdfNewDoc.Pages[pg]);
-                if (IsLA)
+                if (IncludeWriteIns == false && IsLA && MaxNumOfCandidate > 1)
+                    MaxNumOfCandidate = MaxNumOfCandidate - 1;
+
+                if (IsQC || IsWHSE)
                 {
-                    MarkPdf_LandADeck(PositionDT, gfx);
-                    _gmc.IsLA = IsLA;                    
-                    ilk = "L&A";
+                    if (IsQC)
+                        MaxNumOfCandidate = 2;
+                    else
+                        MaxNumOfCandidate = 1;
                 }
-                else if (IsQC)
+
+                for (int pg = 0; pg < MaxNumOfCandidate; pg++)
                 {
-                    if (pg == 1)
+                    MaxVotes = Convert.ToInt32(PositionDT.Compute("max(MaxVotes)", string.Empty));
+                    Count++;
+                    pdfNewDoc.AddPage(pdfDoc.Pages[0]);
+                    XGraphics gfx = XGraphics.FromPdfPage(pdfNewDoc.Pages[pg]);
+                    if (IsLA)
                     {
-                        MarkPdf_QCDeck(PositionDT, gfx);
+                        MarkPdf_LandADeck(PositionDT, gfx);
+                        _gmc.IsLA = IsLA;
+                        ilk = "L&A";
                     }
-                    _gmc.IsQC = IsQC;
-                    ilk = "QC";
-                }
-                else if (IsWHSE)
-                {
-                    MarkPdf_WHSEDeck(PositionDT, gfx);
-                    _gmc.IsWHSE = IsWHSE;
-                    ilk = "WHSE";
-                }
-                else if (IsMULTI)
-                {
-                    if (MaxVotes > 1)
+                    else if (IsQC)
                     {
-                        MarkPdf_MULTIDeck(PositionDT, gfx);
-                        _gmc.IsMULTI = IsMULTI;
-                        ilk = "MULTIVOTE";
+                        if (pg == 1)
+                        {
+                            MarkPdf_QCDeck(PositionDT, gfx);
+                        }
+                        _gmc.IsQC = IsQC;
+                        ilk = "QC";
+                    }
+                    else if (IsWHSE)
+                    {
+                        MarkPdf_WHSEDeck(PositionDT, gfx);
+                        _gmc.IsWHSE = IsWHSE;
+                        ilk = "WHSE";
+                    }
+                    else if (IsMULTI)
+                    {
+                        if (MaxVotes > 1)
+                        {
+                            MarkPdf_MULTIDeck(PositionDT, gfx);
+                            _gmc.IsMULTI = IsMULTI;
+                            ilk = "MULTIVOTE";
+                        }
                     }
                 }
+                if (ilk != "")
+                {
+                    string savedImages = Path.Combine(PdfPath, countyID + "_Processed Images", countyID + "-" + date + "_" + ilk + "_TESTDECK");
+                    Directory.CreateDirectory(savedImages);
+
+                    PdfPath = savedImages;
+                    string pdfName = ilk + "-MarkedTest_" + PdfFileName;
+
+                    _gmc.PdfFileName = pdfName;
+                    _gmc.Rotation = rotation;
+                    _gmc.AddRowsToTempDT(dt, ovaldt, Count);
+
+                    pdfNewDoc.Save(savedImages + @"\" + pdfName);
+                }
             }
-            if (ilk != "")
+            catch (Exception ex)
             {
-                string savedImages = Path.Combine(PdfPath, countyID + "_Processed Images", countyID + "-" + date + "_" + ilk + "_TESTDECK");
-                Directory.CreateDirectory(savedImages);
-
-                PdfPath = savedImages;
-                string pdfName = ilk + "-MarkedTest_" + PdfFileName;
-
-                _gmc.PdfFileName = pdfName;
-                _gmc.Rotation = rotation;
-                _gmc.AddRowsToTempDT(dt, ovaldt, Count);               
-
-                pdfNewDoc.Save(savedImages + @"\" + pdfName);
-            }
-            
+                MessageBox.Show(ex.Message, "LoadPDFDocument Method ERROR", MessageBoxButton.OK, MessageBoxImage.Error);
+            }            
         }
 
         private void MarkPdf_MULTIDeck(DataTable dt, XGraphics gfx)
         {
             DataTable _maxVotes = new DataTable();
             int myiterator = 0;
-            bool process = true;            
-
-            IEnumerable<DataRow> multiVotes = from m in dt.AsEnumerable()
-                                              where m.Field<int>("MaxVotes") > 1
-                                              select m;
-            _maxVotes = multiVotes.CopyToDataTable();
-
-            int totalVotes = Convert.ToInt32(_maxVotes.Rows[0]["TtlRaceOvals"]);
-            int maxVotes = Convert.ToInt32(_maxVotes.Rows[0]["MaxVotes"]);
-
-            if (MaxVotes > 2 && Count == totalVotes)
+            bool process = true;
+            try
             {
-                process = false;
-            }
+                IEnumerable<DataRow> multiVotes = from m in dt.AsEnumerable()
+                                                  where m.Field<int>("MaxVotes") > 1
+                                                  select m;
+                _maxVotes = multiVotes.CopyToDataTable();
 
-            if (process)
-            {
-                if (Count == 1)
-                    MaxVotes = MaxVotes + 1;
+                int totalVotes = Convert.ToInt32(_maxVotes.Rows[0]["TtlRaceOvals"]);
+                int maxVotes = Convert.ToInt32(_maxVotes.Rows[0]["MaxVotes"]);
 
-                if (Count >= 3)
+                if (MaxVotes > 2 && Count == totalVotes)
                 {
-                    myiterator = RowIndex - 1;
-                    MaxVotes = myiterator + MaxVotes;
+                    process = false;
                 }
-                for (int i = myiterator; i < MaxVotes; i++)
-                {
-                    SetCoordinatesForMultiDeck(i, _maxVotes, gfx);
 
-                    if (i == totalVotes - 1 && maxVotes > 2)
+                if (process)
+                {
+                    if (Count == 1)
+                        MaxVotes = MaxVotes + 1;
+
+                    if (Count >= 3)
                     {
-                        MaxNumOfCandidate = MaxNumOfCandidate - 1;
-                        break;
+                        myiterator = RowIndex - 1;
+                        MaxVotes = myiterator + MaxVotes;
                     }
+                    for (int i = myiterator; i < MaxVotes; i++)
+                    {
+                        SetCoordinatesForTestDeck(i, _maxVotes, gfx);
+
+                        if (i == totalVotes - 1 && maxVotes > 2)
+                        {
+                            MaxNumOfCandidate = MaxNumOfCandidate - 1;
+                            break;
+                        }
+                    }
+                    RowIndex++;
                 }
-                RowIndex++;
-            }            
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "MULTI DECK ERROR");
+            }
         }
 
-        private void SetCoordinatesForMultiDeck(int z, DataTable data, XGraphics gfx)
+        private void SetCoordinatesForTestDeck(int z, DataTable data, XGraphics gfx)
         {
             int x = 0;
             int y = 0;
@@ -193,81 +198,115 @@ namespace TestDeck_ImageGenerator
             int racePosn = 0;
             int totalInRace = 0;
             bool writeIn = false;
-            _pdf = new PdfDrawLine();
+            DataTable queryDT = new DataTable();
 
-            for (int i = 0; i < dt.Rows.Count; i++)
+            try
             {
-                racePosn = Convert.ToInt32(PositionDT.Rows[i]["RacePosn"]);
-                totalInRace = Convert.ToInt32(PositionDT.Rows[i]["TtlRaceOvals"]);
-                IsWriteIn = Convert.ToInt32(PositionDT.Rows[i]["IsWriteIn"]);
-
-                if (racePosn == totalInRace)
+                for (int i = 0; i < dt.Rows.Count; i++)
                 {
-                    if (IsWriteIn == 1)
-                        writeIn = true;
+                    racePosn = Convert.ToInt32(dt.Rows[i]["RacePosn"]);
+                    totalInRace = Convert.ToInt32(dt.Rows[i]["TtlRaceOvals"]);
+                    IsWriteIn = Convert.ToInt32(dt.Rows[i]["IsWriteIn"]);
 
-                    if (writeIn == false)
+                    if (racePosn == totalInRace)
                     {
-                        _pdf.DrawLine(gfx, XCoord[i], YCoord[i]);
-                    }
-                    else
-                    {
-                        if (writeIn && IncludeWriteIns)
+                        if (IsWriteIn == 1)
+                            writeIn = true;
+
+                        if (writeIn == false)
                         {
-                            _pdf.DrawLine(gfx, XCoord[i], YCoord[i]);
+                            SetCoordinatesForTestDeck(i, dt, gfx);
                         }
                         else
                         {
-                            _pdf.DrawLine(gfx, XCoord[i - 1], YCoord[i - 1]);
+                            if (writeIn && IncludeWriteIns)
+                            {
+                                SetCoordinatesForTestDeck(i, dt, gfx);
+                            }
+                            else
+                            {
+                                int raceNbr = Convert.ToInt32(dt.Rows[i]["RaceNbr"]);
+
+                                IEnumerable<DataRow> queryWriteIn = from q in dt.AsEnumerable()
+                                                                    where q.Field<int>("RaceNbr") == raceNbr
+                                                                    && q.Field<int>("IsWriteIn") < 1
+                                                                    select q;
+
+                                queryDT = queryWriteIn.CopyToDataTable();
+
+                                for (int j = 0; j < queryDT.Rows.Count; j++)
+                                {
+                                    int newRacePos = Convert.ToInt32(queryDT.Rows[j]["RacePosn"]);
+                                    if (newRacePos == racePosn - 1)
+                                    {
+                                        SetCoordinatesForTestDeck(j, queryDT, gfx);
+                                    }
+                                }                                
+                            }
                         }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "WHSE DECK ERROR");
             }
         }
 
         private void MarkPdf_QCDeck(DataTable dt, XGraphics gfx)
         {
-            _pdf = new PdfDrawLine();
-
-            for (int i = 0; i < dt.Rows.Count; i++)
+            try
             {
-                _pdf.DrawLine(gfx, XCoord[i], YCoord[i]);
+                for (int i = 0; i < dt.Rows.Count; i++)
+                {
+                    SetCoordinatesForTestDeck(i, dt, gfx);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "QC DECK ERROR");
             }
         }
 
         private void MarkPdf_LandADeck(DataTable dt, XGraphics gfx)
         {
             int racePosn = 0;
-            bool isWriteIn = false;            
-            _pdf = new PdfDrawLine();
+            bool isWriteIn = false;
 
-            for (int i = RowIndex; i < dt.Rows.Count; i++)
+            try
             {
-                racePosn = Convert.ToInt32(PositionDT.Rows[i]["RacePosn"]);
-                IsWriteIn = Convert.ToInt32(PositionDT.Rows[i]["IsWriteIn"]);
-
-                if (racePosn == Count)
+                for (int i = RowIndex; i < dt.Rows.Count; i++)
                 {
-                    if (IsWriteIn == 1)
-                        isWriteIn = true;
+                    racePosn = Convert.ToInt32(dt.Rows[i]["RacePosn"]);
+                    IsWriteIn = Convert.ToInt32(dt.Rows[i]["IsWriteIn"]);
 
-                    if (isWriteIn == false)
+                    if (racePosn == Count)
                     {
-                        _pdf.DrawLine(gfx, XCoord[i], YCoord[i]);                        
+                        if (IsWriteIn == 1)
+                            isWriteIn = true;
+
+                        if (isWriteIn == false)
+                        {
+                            SetCoordinatesForTestDeck(i, dt, gfx);
+                        }
+                        else
+                        {
+                            if (isWriteIn && IncludeWriteIns)
+                            {
+                                SetCoordinatesForTestDeck(i, dt, gfx);
+                            }
+                        }
+                        RowIndex++;
                     }
                     else
                     {
-                        if (isWriteIn && IncludeWriteIns)
-                        {
-                            _pdf.DrawLine(gfx, XCoord[i], YCoord[i]);
-                        }
+                        break;
                     }
-                    RowIndex++;
                 }
-                else
-                {                    
-                    break;
-                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "L&A DECK ERROR");
             }
         }
     }
