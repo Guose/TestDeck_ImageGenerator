@@ -13,6 +13,7 @@ using System.Data;
 
 namespace MarkedTestDeck_Image
 {
+    #region ENUMS
     public enum ProcessOptions
     {
         ByCard,
@@ -53,35 +54,48 @@ namespace MarkedTestDeck_Image
         public TestDeckIlk TestDeck { get; set; }
     }
 
+    #endregion ENUMS
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
     {
-        private string path = string.Empty;
-        private string ilk = string.Empty;
-        private string savedPath = string.Empty;
-        private bool includeWriteIns;
-        private string countyID = string.Empty;
-        private AddCountyId addCounty;
-        private IVSDataAccess data = new IVSDataAccess();
-        private TestOptions options = null;        
-        private PDFLoader pdfTestIlk = new PDFLoader();
-        private DataLoader dl = new DataLoader();
-        private GMCTextFile gmc = new GMCTextFile();
-        private FileInfo fi;
-
         public MainWindow()
         {
             InitializeComponent();
 
             DataAccess.Instance.VotePositionTable = new DataTable();
+            DataAccess.Instance.DeckinatorTable = new DataTable();
+            AddBoxQuantityToComboBox();
 
             options = new TestOptions();
             DataContext = options;
             DragEnter += new DragEventHandler(Rectangle_DragEnter);
             Drop += new DragEventHandler(Rectangle_Drop);            
         }
+
+
+        #region MainWindow Properties
+        private string path = string.Empty;
+        private bool reporting;
+        private string ilk = string.Empty;
+        private string _savedPath = string.Empty;
+        private bool includeWriteIns;
+        private string countyID = string.Empty;
+        private int _totalBallots = 0;
+        private AddCountyId addCounty;        
+        private TestOptions options = null;        
+        private PDFLoader pdfTestIlk = new PDFLoader();
+        private DataLoader dl = new DataLoader();
+        private GMCTextFile gmc = new GMCTextFile();
+        private DeckinatorReport deck = new DeckinatorReport();
+        private FileInfo fi;
+        private int fileBreak;
+        #endregion MainWindow Properties
+
+
+        #region Drag N Drop
 
         private void Rectangle_DragEnter(object sender, DragEventArgs e)
         {
@@ -104,17 +118,48 @@ namespace MarkedTestDeck_Image
                     }
                 }
             }
-
             DataAccess.Instance.OvalDataTable = FileDelimeter.DataFromTextFile(path, '|');
             lblFileLoaded.Visibility = Visibility.Visible;
             Cursor = Cursors.Arrow;
         }
+        #endregion Drag N Drop
+
+
+        #region Main Methods
+
+        private void AddBoxQuantityToComboBox()
+        {
+            cboFileSplitSize.Items.Add("Select Box Split Size");
+            int boxSplit = 250;
+
+            while (boxSplit <= 750)
+            {
+                cboFileSplitSize.Items.Add(boxSplit);
+                boxSplit = boxSplit + 50;
+            }
+        }
+
         private void QueryProcessOptions()
         {
             delUpdateCardCount delCard = new delUpdateCardCount(UpdateCardCountTextbox);
             delUpdateVoteCount delVote = new delUpdateVoteCount(UpdateVoteCountTextbox);
 
-            DataTable qdt = DataAccess.Instance.OvalDataTable;
+            DataTable qdt = null;
+
+            if (includeWriteIns == false)
+            {
+                IEnumerable<DataRow> removeWriteIns = from oval in DataAccess.Instance.OvalDataTable.AsEnumerable()
+                                                      where oval.Field<string>("IsWriteIn") == "0"
+                                                      select oval;
+
+                qdt = removeWriteIns.CopyToDataTable();
+                DataAccess.Instance.OvalDataTable = qdt;
+            }
+            else
+            {
+                qdt = DataAccess.Instance.OvalDataTable;
+            }
+
             DataTable tempdt = new DataTable();
             DataTable joinTable = new DataTable();
 
@@ -180,32 +225,25 @@ namespace MarkedTestDeck_Image
                 {
                     votes = i + 1;
                     delVote(votes.ToString());
-                    Thread.Sleep(50);
+                    Thread.Sleep(30);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "IS OVAL FILE LOADED TO THE PROGRAM???", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+                MessageBox.Show(ex.Message, "ERROR", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
             }
-        }
-
-        private string GetPdfFilePathName(string filePath)
-        {
-            fi = new FileInfo(filePath);
-            string pdfPath = fi.DirectoryName + @"\Images\";
-
-            return pdfPath;
         }
 
         private void DoWorkOnImages()
         {
             DataTable dt = new DataTable();
-            delUpdateBallotCount delBallot = new delUpdateBallotCount(UpdateBallotCountTextbox);
-            string pdfPath = GetPdfFilePathName(path);
+            delUpdateBallotCount delBallot = new delUpdateBallotCount(UpdateBallotCountTextbox);            
             int imagesProcessed = 0;            
 
             try
             {
+                fi = new FileInfo(path);
+                string pdfPath = fi.DirectoryName + @"\Images\";
                 QueryProcessOptions();
 
                 foreach (var file in dl.RetrievePdfFileNames(pdfPath))
@@ -222,7 +260,7 @@ namespace MarkedTestDeck_Image
                         SelectLARotation();
                     }
                     pdf.LoadPdfDocument(dl.PositionDT, dl.OvalDT, gmc.Rotation, countyID);
-                    savedPath = pdf.PdfPath;
+                    _savedPath = pdf.PdfPath;
 
                     imagesProcessed++;
                     string name = Path.GetFileName(file);
@@ -230,15 +268,16 @@ namespace MarkedTestDeck_Image
                     mydel(name, imagesProcessed.ToString());
                 }
 
-                SaveGMCTextFile(savedPath);
+                SaveGMCTextFile(_savedPath);
 
                 delBallot(gmc._count.ToString());
+                _totalBallots = gmc._count;
                 MessageBox.Show(options.TestDeck.ToString() + " Testdecks are completed \n\n   " + gmc._count + " total Testdecks processed",
                     "PROCESS COMPLETE!", MessageBoxButton.OK, MessageBoxImage.None);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "ERROR", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, "IS OVAL FILE LOADED TO THE PROGRAM???", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {                
@@ -246,22 +285,89 @@ namespace MarkedTestDeck_Image
             }
         }
 
+        private void SaveGMCTextFile(string savedPath)
+        {            
+            //gmc.SaveGMCTextfile(savedPath, DataAccess.Instance.VotePositionTable, countyID);
+            gmc.GenerateGMCTextFile(savedPath, DataAccess.Instance.VotePositionTable, countyID);
+
+            if (reporting)
+            {
+                gmc.SaveDeckReportTextFile(savedPath, countyID);
+            }
+        }
+        #endregion Main Methods
+
+        #region Window Buttons
 
         private void btnProcess_Click(object sender, RoutedEventArgs e)
         {
-            Cursor = Cursors.AppStarting;
-            dl.OvalDT = DataAccess.Instance.OvalDataTable;
-            includeWriteIns = chkIncludeWriteIns.IsChecked.Value;
-            countyID = cboCountyName.SelectedValue.ToString();
+            try
+            {
+                Cursor = Cursors.AppStarting;
+                includeWriteIns = chkIncludeWriteIns.IsChecked.Value;
+                reporting = chkReporting.IsChecked.Value;
+                countyID = cboCountyName.SelectedValue.ToString();
 
-            workerThread = new Thread(DoWorkOnImages);
-            workerThread.Start();
+                if (cboFileSplitSize.SelectedIndex > 0)
+                {
+                    fileBreak = int.Parse(cboFileSplitSize.SelectedItem.ToString());
+                    gmc.FileBreak = fileBreak;
+                }
+                else
+                    throw new Exception();
 
-            Thread.Sleep(500);
+                workerThread = new Thread(DoWorkOnImages);
+                workerThread.IsBackground = true;
+                workerThread.Start();
+
+                Thread.Sleep(100);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Please select box split quantity \n\n" + ex.Message, "WARNING", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
             Cursor = Cursors.Arrow;
             MainWindow m = new MainWindow();
         }
+        private void btnAddCounty_Click(object sender, RoutedEventArgs e)
+        {
+            addCounty = new AddCountyId();
+            frmAddCounty.NavigationService.Navigate(addCounty);
+            btnProcess.IsEnabled = false;
+            btnClear.IsEnabled = false;
+        }
 
+        private void btnExit_Click(object sender, RoutedEventArgs e)
+        {
+            dl.Dispose();
+            gmc.Dispose();
+            deck.Dispose();
+            addCounty = null;
+            pdfTestIlk = null;
+            Close();
+            Application.Current.Shutdown();
+        }
+
+        private void btnClear_Click(object sender, RoutedEventArgs e)
+        {
+            txtBallotCount.Text = "";
+            txtCardCount.Text = "";
+            txtImageCount.Text = "";
+            txtImageFileName.Text = "";
+            txtLARotationOther.Text = "";
+            txtVoteCount.Text = "";
+            lblFileLoaded.Visibility = Visibility.Hidden;
+            lblDragOvalFile.Visibility = Visibility.Visible;
+            dl.Dispose();
+            gmc.Dispose();
+            deck.Dispose();
+            addCounty = null;
+            pdfTestIlk = null;
+        }
+        #endregion Window Buttons
+
+
+        #region Background Thread
 
         public delegate void delUpdateUITextbox(string fileName, string imageCount);
         public delegate void delUpdateCardCount(string card);
@@ -291,20 +397,13 @@ namespace MarkedTestDeck_Image
             Dispatcher.BeginInvoke((Action)(() => txtImageCount.Text = image)
                 , System.Windows.Threading.DispatcherPriority.Input);
         }
+        #endregion Background Thread
 
+
+        #region Window Attributes
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {            
             PopulateCountyIdToComboBox();
-        }        
-
-        private void SaveGMCTextFile(string savedPath)
-        {
-            //string savedImages = Path.Combine(GetPdfFilePathName(path), "Processed Images");
-
-            string newFileName = gmc.SaveGMCTextfile(savedPath, DataAccess.Instance.VotePositionTable, countyID);
-
-            var lines = File.ReadAllLines(newFileName);
-            File.WriteAllLines(newFileName, lines.Take(lines.Length - 1).ToArray());
         }
 
         private void radLA_Checked(object sender, RoutedEventArgs e)
@@ -317,20 +416,10 @@ namespace MarkedTestDeck_Image
             grdRotation.IsEnabled = false;
         }
 
-        private void btnExit_Click(object sender, RoutedEventArgs e)
-        {            
-            Close();
-        }
-        private void btnAddCounty_Click(object sender, RoutedEventArgs e)
-        {
-             addCounty = new AddCountyId();
-            frmAddCounty.NavigationService.Navigate(addCounty);
-            btnProcess.IsEnabled = false;
-            btnClear.IsEnabled = false;
-        }
-
         private void PopulateCountyIdToComboBox()
         {
+            IVSDataAccess data = new IVSDataAccess();
+
             foreach (var item in data.AddCustomersToList())
             {
                 cboCountyName.Items.Add(item);
@@ -343,17 +432,8 @@ namespace MarkedTestDeck_Image
             PopulateCountyIdToComboBox();
             btnProcess.IsEnabled = true;
             btnClear.IsEnabled = true;
-        }       
+        } 
 
-        private void btnClear_Click(object sender, RoutedEventArgs e)
-        {
-            txtBallotCount.Text = "";
-            txtCardCount.Text = "";
-            txtImageCount.Text = "";
-            txtImageFileName.Text = "";
-            txtLARotationOther.Text = "";
-            txtVoteCount.Text = "";
-        }
         private string QuerySortOvalDT()
         {
             string sort = string.Empty;
@@ -432,6 +512,13 @@ namespace MarkedTestDeck_Image
                 default:
                 break;
             }
-        }        
+        }
+
+        private void chkIncludeWriteIns_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("Be sure to clear Oval Data. \n\nPlease redrop the Oval file to the program",
+                "WARNING!!! RELOAD OVAL DATA", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        #endregion Window Attributes
     }
 }

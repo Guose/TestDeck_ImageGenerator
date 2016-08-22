@@ -13,6 +13,7 @@ namespace TestDeck_ImageGenerator
 
         public DataTable VotePositionTable { get; set; }
         public DataTable OvalDataTable { get; set; }
+        public DataTable DeckinatorTable { get; set; }
 
         static DataAccess()
         {
@@ -21,8 +22,9 @@ namespace TestDeck_ImageGenerator
 
         public DataAccess()
         {
-            this.VotePositionTable = new DataTable();
-            this.OvalDataTable = new DataTable();
+            VotePositionTable = new DataTable();
+            OvalDataTable = new DataTable();
+            DeckinatorTable = new DataTable();
         }
 
         public static DataAccess Instance { get { return instance; } }

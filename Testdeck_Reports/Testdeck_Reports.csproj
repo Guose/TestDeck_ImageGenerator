@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{60CF9BE0-10E6-4F7A-8C69-42E2DE32E778}</ProjectGuid>
+    <ProjectGuid>{35D026EF-1045-4D26-AD63-49133DA96328}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CountyId_DAL</RootNamespace>
-    <AssemblyName>CountyId_DAL</AssemblyName>
+    <RootNamespace>Testdeck_Reports</RootNamespace>
+    <AssemblyName>Testdeck_Reports</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -40,7 +40,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CountyId.DAL.cs" />
+    <Compile Include="Reports.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

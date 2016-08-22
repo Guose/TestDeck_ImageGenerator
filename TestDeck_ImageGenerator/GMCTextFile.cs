@@ -3,10 +3,12 @@ using System.Text;
 using System.Data;
 using System.IO;
 using Microsoft.Win32;
+using System.Linq;
+using System.Windows;
 
 namespace TestDeck_ImageGenerator
 {
-    public class GMCTextFile
+    public class GMCTextFile : IDisposable
     {
         public GMCTextFile(DataTable dt, string path) : this()
         {
@@ -34,9 +36,12 @@ namespace TestDeck_ImageGenerator
         public bool IsMULTI { get; set; }
         #endregion Properties
 
-        public void AddRowsToTempDT(DataTable dt, DataTable ovaldt, int count)
+        public void GenerateOutputTextFile(DataTable dt, DataTable ovaldt, int count)
         {
-            //Temporary assignment of Rotation property
+            DataTable drDt = new DataTable();
+            DeckinatorReport dr = new DeckinatorReport();
+
+            // Assignment of Rotation property
             if (IsLA == false)
             {
                 Rotation = 1;
@@ -44,16 +49,15 @@ namespace TestDeck_ImageGenerator
             OvalData = new DataTable();
 
             OvalData = ovaldt;
-            int iteration = DataAccess.Instance.VotePositionTable.Rows.Count;
             int sortKey = 1;
+            string columnToSearch = "BallotImageFront";
 
             string ovalFileName = dt.Rows[0]["BallotImage"].ToString();
 
             foreach (DataColumn oval in OvalData.Columns)
             {
-                if (oval.ColumnName.Contains("BallotImageFront"))
-                {
-                    string columnToSearch = oval.ColumnName.ToString();
+                if (oval.ColumnName.Contains(columnToSearch))
+                {                    
                     int rowIndex = 0;
 
                     foreach (DataRow row in OvalData.Rows)
@@ -61,20 +65,22 @@ namespace TestDeck_ImageGenerator
                         if (row[columnToSearch].ToString() == ovalFileName)
                         {
                             rowIndex = OvalData.Rows.IndexOf(row);
-                            SetRowsToDataTable(count, sortKey, rowIndex);
-
-                            LogicAndAccuracyRotation(Rotation);                            
+                            SetDataTableRowsForOutput(count, sortKey, ref rowIndex);
+                            RotationGMCOutputDataTable(Rotation, TempDt);
                             break;
                         }
                     }
                     break;
                 }
             }
+
+            drDt = dr.QueryDeckReportDTByImageName(ovalFileName);
+            dr.SetDataAccessDeckinatorDT(Rotation, drDt);            
         }
 
-        private void SetRowsToDataTable(int count, int sortKey, int rowIndex)
+        private void SetDataTableRowsForOutput(int count, int sortKey, ref int rowIndex)
         {
-            string[] ballotImageVariations = new string[] { "NO BACK", "NO BACK.pdf", "NOBACK", "NOBACK.pdf", "NOBACK.PDF", "NO BACK.PDF" };
+            string[] ballotImageBackVariations = new string[] { "NO BACK", "NO BACK.pdf", "NOBACK", "NOBACK.pdf", "NOBACK.PDF", "NO BACK.PDF" };
             int pageBack = 0;
 
             for (int i = 0; i < count; i++)
@@ -98,7 +104,7 @@ namespace TestDeck_ImageGenerator
                 TempDt.Rows[i]["Party"] = OvalData.Rows[rowIndex]["Party"];
                 TempDt.Rows[i]["ILK"] = AddIlkToData();
 
-                foreach (string item in ballotImageVariations)
+                foreach (string item in ballotImageBackVariations)
                 {
                     if (TempDt.Rows[i]["BallotImageBack"].ToString() == item)
                     {
@@ -134,15 +140,15 @@ namespace TestDeck_ImageGenerator
             }            
         }
 
-        private void LogicAndAccuracyRotation(int x) // x equals rotation i.e. LA5 or LA2
-        {            
+        private void RotationGMCOutputDataTable(int rotation, DataTable dt) // x equals rotation i.e. LA5 or LA2
+        {
             int loops = 1;
             int sequenceNum = 1 + DataAccess.Instance.VotePositionTable.Rows.Count;
             int row = DataAccess.Instance.VotePositionTable.Rows.Count;            
 
-            foreach (DataRow item in TempDt.Rows)
+            foreach (DataRow item in dt.Rows)
             {
-                if (loops == 1 || x < 2)
+                if (loops == 1 || rotation < 2)
                 {
                     DataAccess.Instance.VotePositionTable.Rows.Add(item.ItemArray);
                     DataAccess.Instance.VotePositionTable.Rows[row]["Sequence"] = sequenceNum.ToString();
@@ -150,7 +156,7 @@ namespace TestDeck_ImageGenerator
                 }
                 else
                 {
-                    if (loops <= x)
+                    if (loops <= rotation)
                     {
                         for (int i = 0; i < loops; i++)
                         {
@@ -161,7 +167,7 @@ namespace TestDeck_ImageGenerator
                         }
                         loops++; 
 
-                        if (loops > x)
+                        if (loops > rotation)
                             loops = 1;
                     }                  
                 }                
@@ -212,38 +218,22 @@ namespace TestDeck_ImageGenerator
                 TempDt.Columns.Add("ILK");
             }
         }
-
-        public string SaveGMCTextfile(string path, DataTable dt, string countyId)
+        public void SaveDeckReportTextFile(string path, string countyID)
         {
-            SaveFileDialog dlg = new SaveFileDialog();
-            dlg.DefaultExt = ".txt";
-            dlg.Filter = "Text documents (.txt)|*.txt";
-
-            string fileName = path + @"\" + countyId + "-" + AddIlkToData() + "_TESTDECK_GMC.txt";
-            //string newFilename = AddSuffix(path, ".txt", true);
-
-            var header = new StringBuilder();
+            string fileName = path + @"\" + countyID + "-" + AddIlkToData() + "_DECKREPORT.txt";
             var result = new StringBuilder();
 
-            for (int j = 0; j < dt.Columns.Count; j++)
+            foreach (DataRow dr in DataAccess.Instance.DeckinatorTable.Rows)
             {
-                header.Append(dt.Columns[j].ColumnName);
-                header.Append(j == dt.Columns.Count - 1 ? "" : "|");
-            }
-
-            foreach (DataRow dr in dt.Rows)
-            {
-                for (int i = 0; i < dt.Columns.Count; i++)
+                for (int i = 0; i < DataAccess.Instance.DeckinatorTable.Columns.Count; i++)
                 {
                     result.Append(dr[i].ToString());
-                    result.Append(i == dt.Columns.Count - 1 ? "" : "|");                    
+                    result.Append(i == DataAccess.Instance.DeckinatorTable.Columns.Count - 1 ? "" : "|");
                 }
-                _count++;
                 result.AppendLine();
             }
             using (StreamWriter sw = new StreamWriter(fileName))
             {
-                sw.WriteLine(header.ToString());
                 sw.WriteLine(result.ToString());
                 sw.Close();
             }
@@ -253,7 +243,161 @@ namespace TestDeck_ImageGenerator
             IsWHSE = false;
             IsMULTI = false;
 
-            return fileName;
+            var lines = File.ReadAllLines(fileName);
+            File.WriteAllLines(fileName, lines.Take(lines.Length - 1).ToArray());
+            
         }
+
+        public void GenerateGMCTextFile(string path, DataTable dt, string countyId)
+        {
+            try
+            {
+                SaveFileDialog dlg = new SaveFileDialog();
+                dlg.DefaultExt = ".txt";
+                dlg.Filter = "Text documents (.txt)|*.txt";
+                
+                string fileName = path + @"\" + countyId + "-" + AddIlkToData() + "_TESTDECK_GMC.txt";
+                decimal tempBox = dt.Rows.Count / FileBreak;
+                int boxSplit = Convert.ToInt32(Math.Ceiling(tempBox + 1));
+                string[] fileArray = new string[dt.Rows.Count + boxSplit + 1];
+                int count =1;
+                int i = 0;
+                int rowNum = 0;
+                string columns = string.Empty;                
+
+                foreach (DataColumn dc in dt.Columns)
+                {
+                    columns += dc.ColumnName + '|';
+                }
+                fileArray[i] = columns.Remove(columns.Length - 1, 1);
+                i++;
+
+                foreach (DataRow dr in dt.Rows)
+                {
+                    string row = string.Empty;
+
+                    if (rowNum % FileBreak == 0)
+                    {
+                        row = $"BOX DIVIDER #{count}|BOX {count} of {boxSplit}||||BoxDividerFront.pdf|1|BoxDividerBack.pdf|2";
+                        fileArray[i] = row;
+                        i++;
+                        count++;
+                        row = string.Empty;
+                    }
+
+                    foreach (var item in dr.ItemArray)
+                    {
+                        row += item.ToString() + '|';
+                    }
+
+                    fileArray[i] = row.Remove(row.Length - 1, 1);
+                    rowNum++;
+                    i++;
+                    _count++;              
+                }
+                using (StreamWriter sw = new StreamWriter(fileName, true))
+                {
+                    foreach (var item in fileArray)
+                    {
+                        sw.WriteLine(item);
+                    }
+                    sw.Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+            finally
+            {
+                IsLA = false;
+                IsQC = false;
+                IsWHSE = false;
+                IsMULTI = false;
+            }
+        }
+
+        public void SaveGMCTextfile(string path, DataTable dt, string countyId)
+        {
+            try
+            {
+                SaveFileDialog dlg = new SaveFileDialog();
+                dlg.DefaultExt = ".txt";
+                dlg.Filter = "Text documents (.txt)|*.txt";
+
+                string fileName = path + @"\" + countyId + "-" + AddIlkToData() + "_TESTDECK_GMC.txt";
+                //string newFilename = AddSuffix(path, ".txt", true);
+
+                var header = new StringBuilder();
+                var result = new StringBuilder();
+
+                for (int j = 0; j < dt.Columns.Count; j++)
+                {
+                    header.Append(dt.Columns[j].ColumnName);
+                    header.Append(j == dt.Columns.Count - 1 ? "" : "|");
+                }
+
+                foreach (DataRow dr in dt.Rows)
+                {
+                    for (int i = 0; i < dt.Columns.Count; i++)
+                    {
+                        result.Append(dr[i].ToString());
+                        result.Append(i == dt.Columns.Count - 1 ? "" : "|");
+                    }
+                    _count++;
+                    result.AppendLine();
+                }
+                using (StreamWriter sw = new StreamWriter(fileName))
+                {
+                    sw.WriteLine(header.ToString());
+                    sw.WriteLine(result.ToString());
+                    sw.Close();
+                }
+
+                var lines = File.ReadAllLines(fileName);
+                File.WriteAllLines(fileName, lines.Take(lines.Length - 1).ToArray());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "ERROR in Saving GMC TextFiles");
+            }
+        }
+
+        #region IDisposable Support
+        private bool disposedValue = false; // To detect redundant calls
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // TODO: dispose managed state (managed objects).
+                    TempDt = null;
+                    OvalData = null;
+                }
+
+                // TODO: free unmanaged resources (unmanaged objects) and override a finalizer below.
+                // TODO: set large fields to null.
+
+                disposedValue = true;
+            }
+        }
+
+        // TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
+        // ~GMCTextFile() {
+        //   // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+        //   Dispose(false);
+        // }
+
+        // This code added to correctly implement the disposable pattern.
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+            Dispose(true);
+            // TODO: uncomment the following line if the finalizer is overridden above.
+            // GC.SuppressFinalize(this);
+        }
+        #endregion
     }
 }

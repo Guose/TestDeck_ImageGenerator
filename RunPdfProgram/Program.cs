@@ -69,10 +69,8 @@ namespace RunPdfProgram
             stopWatch.Start();
 
             string savedImages = Path.Combine(pdfPath, "Processed Images");
-            string newfilename = gmc.SaveGMCTextfile(savedImages, DataAccess.Instance.VotePositionTable, countyId);
 
-            var lines = File.ReadAllLines(newfilename);
-            File.WriteAllLines(newfilename, lines.Take(lines.Length - 1).ToArray());
+            gmc.SaveGMCTextfile(savedImages, DataAccess.Instance.VotePositionTable, countyId);
 
             stopWatch.Stop();
 

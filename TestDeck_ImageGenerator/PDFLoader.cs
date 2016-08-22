@@ -53,6 +53,7 @@ namespace TestDeck_ImageGenerator
         {
             string ilk = string.Empty;
             string date = DateTime.Now.ToString("yyyyMMdd");
+            int candidate = 0;
             PositionDT = dt;
 
             try
@@ -63,7 +64,19 @@ namespace TestDeck_ImageGenerator
                 MaxNumOfCandidate = Convert.ToInt32(PositionDT.Compute("max(TtlRaceOvals)", string.Empty));
 
                 if (IncludeWriteIns == false && IsLA && MaxNumOfCandidate > 1)
-                    MaxNumOfCandidate = MaxNumOfCandidate - 1;
+                {
+                    for (int i = 0; i < PositionDT.Rows.Count; i++)
+                    {
+                        candidate = Convert.ToInt32(PositionDT.Rows[i]["IsWriteIn"]);
+
+                        if (candidate > 0)
+                        {
+                            MaxNumOfCandidate = MaxNumOfCandidate - 1;
+                            break;
+                        }
+                    }
+                }
+                    
 
                 if (IsQC || IsWHSE)
                 {
@@ -120,7 +133,7 @@ namespace TestDeck_ImageGenerator
 
                     _gmc.PdfFileName = pdfName;
                     _gmc.Rotation = rotation;
-                    _gmc.AddRowsToTempDT(dt, ovaldt, Count);
+                    _gmc.GenerateOutputTextFile(dt, ovaldt, Count);
 
                     pdfNewDoc.Save(savedImages + @"\" + pdfName);
                 }

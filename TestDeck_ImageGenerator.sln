@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IVS Customers", "Customer\I
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CountyId.DAL", "CountyId.DAL\CountyId.DAL.csproj", "{DBD40469-8F57-44E6-A029-D310A55CCE3A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Testdeck_Reports", "Testdeck_Reports\Testdeck_Reports.csproj", "{35D026EF-1045-4D26-AD63-49133DA96328}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,10 @@ Global
 		{DBD40469-8F57-44E6-A029-D310A55CCE3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DBD40469-8F57-44E6-A029-D310A55CCE3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DBD40469-8F57-44E6-A029-D310A55CCE3A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35D026EF-1045-4D26-AD63-49133DA96328}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35D026EF-1045-4D26-AD63-49133DA96328}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35D026EF-1045-4D26-AD63-49133DA96328}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35D026EF-1045-4D26-AD63-49133DA96328}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

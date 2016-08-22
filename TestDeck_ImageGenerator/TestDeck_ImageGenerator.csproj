@@ -57,6 +57,7 @@
     <Compile Include="DataAccess.cs" />
     <Compile Include="DataLoader.cs" />
     <Compile Include="Base.cs" />
+    <Compile Include="DeckinatorReport.cs" />
     <Compile Include="FileDelimeter.cs" />
     <Compile Include="PdfDrawLine.cs" />
     <Compile Include="PDFLoader.cs" />
