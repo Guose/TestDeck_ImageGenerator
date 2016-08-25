@@ -53,27 +53,23 @@ namespace TestDeck_ImageGenerator
         {
             string ilk = string.Empty;
             string date = DateTime.Now.ToString("yyyyMMdd");
-            int candidate = 0;
-            PositionDT = dt;
 
             try
             {
                 PdfDocument pdfDoc = PdfSharp.Pdf.IO.PdfReader.Open
                     (PdfPath + PdfFileName, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
                 PdfDocument pdfNewDoc = new PdfDocument();
-                MaxNumOfCandidate = Convert.ToInt32(PositionDT.Compute("max(TtlRaceOvals)", string.Empty));
+                MaxNumOfCandidate = Convert.ToInt32(dt.Compute("max(TtlRaceOvals)", string.Empty));
 
                 if (IncludeWriteIns == false && IsLA && MaxNumOfCandidate > 1)
                 {
-                    for (int i = 0; i < PositionDT.Rows.Count; i++)
-                    {
-                        candidate = Convert.ToInt32(PositionDT.Rows[i]["IsWriteIn"]);
+                    var decrementMaxCand = from m in dt.AsEnumerable()
+                                           where m.Field<int>("IsWriteIn") > 0
+                                           select m;
 
-                        if (candidate > 0)
-                        {
-                            MaxNumOfCandidate = MaxNumOfCandidate - 1;
-                            break;
-                        }
+                    if (decrementMaxCand.Any())
+                    {
+                        MaxNumOfCandidate = MaxNumOfCandidate - 1;
                     }
                 }
                     
@@ -88,13 +84,13 @@ namespace TestDeck_ImageGenerator
 
                 for (int pg = 0; pg < MaxNumOfCandidate; pg++)
                 {
-                    MaxVotes = Convert.ToInt32(PositionDT.Compute("max(MaxVotes)", string.Empty));
+                    MaxVotes = Convert.ToInt32(dt.Compute("max(MaxVotes)", string.Empty));
                     Count++;
                     pdfNewDoc.AddPage(pdfDoc.Pages[0]);
                     XGraphics gfx = XGraphics.FromPdfPage(pdfNewDoc.Pages[pg]);
                     if (IsLA)
                     {
-                        MarkPdf_LandADeck(PositionDT, gfx);
+                        MarkPdf_LandADeck(dt, gfx);
                         _gmc.IsLA = IsLA;
                         ilk = "L&A";
                     }
@@ -102,14 +98,14 @@ namespace TestDeck_ImageGenerator
                     {
                         if (pg == 1)
                         {
-                            MarkPdf_QCDeck(PositionDT, gfx);
+                            MarkPdf_QCDeck(dt, gfx);
                         }
                         _gmc.IsQC = IsQC;
                         ilk = "QC";
                     }
                     else if (IsWHSE)
                     {
-                        MarkPdf_WHSEDeck(PositionDT, gfx);
+                        MarkPdf_WHSEDeck(dt, gfx);
                         _gmc.IsWHSE = IsWHSE;
                         ilk = "WHSE";
                     }
@@ -117,7 +113,7 @@ namespace TestDeck_ImageGenerator
                     {
                         if (MaxVotes > 1)
                         {
-                            MarkPdf_MULTIDeck(PositionDT, gfx);
+                            MarkPdf_MULTIDeck(dt, gfx);
                             _gmc.IsMULTI = IsMULTI;
                             ilk = "MULTIVOTE";
                         }

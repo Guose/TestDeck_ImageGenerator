@@ -5,6 +5,7 @@ using System.IO;
 using Microsoft.Win32;
 using System.Linq;
 using System.Windows;
+using System.Collections.Generic;
 
 namespace TestDeck_ImageGenerator
 {
@@ -218,10 +219,80 @@ namespace TestDeck_ImageGenerator
                 TempDt.Columns.Add("ILK");
             }
         }
+
+        private void SetTotalBallotCount()
+        {            
+            DataTable imageOneMaxVotes = new DataTable();
+            DataTable imageName = new DataTable();
+            DataTable multiMaxVotes = new DataTable();
+            DataTable transferDT = DataAccess.Instance.DeckinatorTable.Clone();
+
+            DataView dv = DataAccess.Instance.DeckinatorTable.DefaultView;
+            dv.Sort = "TotalVotes DESC";
+            DataAccess.Instance.DeckinatorTable = dv.ToTable();
+
+            IEnumerable<DataRow> images = from i in DataAccess.Instance.DeckinatorTable.AsEnumerable()
+                                               group i by i.Field<string>("BallotImageFront") into grp
+                                               select grp.FirstOrDefault();
+
+            imageName = images.CopyToDataTable();
+
+            for (int j = 0; j < imageName.Rows.Count; j++)
+            {
+                int counter = 0;
+                int maxVotes = Convert.ToInt32(imageName.Rows[j]["TotalVotes"]);
+                string ballotImage = imageName.Rows[j]["BallotImageFront"].ToString();
+
+                // Select all images that equal ballotImage
+                IEnumerable<DataRow> allImageNameQuery = from m in DataAccess.Instance.DeckinatorTable.AsEnumerable()
+                                                    where m.Field<string>("BallotImageFront") == ballotImage
+                                                    select m;
+
+                imageOneMaxVotes = allImageNameQuery.CopyToDataTable();
+
+                int raceID = Convert.ToInt32(imageOneMaxVotes.Rows[0]["RaceID"]);
+
+                foreach (DataRow item in imageOneMaxVotes.Rows)
+                {
+                    if (ballotImage == imageOneMaxVotes.Rows[counter]["BallotImageFront"].ToString())
+                    {
+                        if (maxVotes == 1)
+                        {
+                            transferDT.Rows.Add(item.ItemArray);
+                            transferDT.Rows[transferDT.Rows.Count - 1]["TotalBallots"] = 1;
+                            counter++;
+                        }
+                        else
+                        {
+                            //Gets count of total ballots that will be printed
+                            IEnumerable<DataRow> maxVoteOverOne = from v in DataAccess.Instance.DeckinatorTable.AsEnumerable()
+                                                                  where v.Field<int>("TotalVotes") == maxVotes 
+                                                                  && v.Field<string>("BallotImageFront") == ballotImage
+                                                                  && v.Field<int>("RaceID") == raceID
+                                                                  select v;
+
+                            multiMaxVotes = maxVoteOverOne.CopyToDataTable();
+
+                            transferDT.Rows.Add(item.ItemArray);
+                            transferDT.Rows[transferDT.Rows.Count - 1]["TotalBallots"] = multiMaxVotes.Rows.Count;
+                            counter++;
+                        }
+                    }                    
+                }
+            }
+            DataAccess.Instance.DeckinatorTable = transferDT;
+
+            DataView view = DataAccess.Instance.DeckinatorTable.DefaultView;
+            view.Sort = "Sequence ASC";
+            DataAccess.Instance.DeckinatorTable = view.ToTable();
+        }
+
         public void SaveDeckReportTextFile(string path, string countyID)
         {
             string fileName = path + @"\" + countyID + "-" + AddIlkToData() + "_DECKREPORT.txt";
             var result = new StringBuilder();
+
+            SetTotalBallotCount();
 
             foreach (DataRow dr in DataAccess.Instance.DeckinatorTable.Rows)
             {
@@ -265,6 +336,7 @@ namespace TestDeck_ImageGenerator
                 int rowNum = 0;
                 string columns = string.Empty;                
 
+                // generates the header record
                 foreach (DataColumn dc in dt.Columns)
                 {
                     columns += dc.ColumnName + '|';
@@ -307,13 +379,6 @@ namespace TestDeck_ImageGenerator
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
-            }
-            finally
-            {
-                IsLA = false;
-                IsQC = false;
-                IsWHSE = false;
-                IsMULTI = false;
             }
         }
 

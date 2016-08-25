@@ -95,7 +95,7 @@ namespace XYCoordinates
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "SOMETHING WRONG JUST HAPPENED", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(ex.Message, "ERROR IN ARROW COORDINATES CLASS", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             return ArrowDumpDt;
         }

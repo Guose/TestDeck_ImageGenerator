@@ -8,16 +8,17 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="650" Width="685" Loaded="Window_Loaded">
     <Grid Background="WhiteSmoke">
-        <GroupBox x:Name="grpDeckType" Header="Select Deck Type" HorizontalAlignment="Left" Margin="61,113,0,0" VerticalAlignment="Top" Height="120" Width="120" FontWeight="Bold" BorderThickness="2,1,1,2" BorderBrush="#FFA6ABAE"/>
+        <GroupBox x:Name="grpDeckType" Header="Select Deck Type" HorizontalAlignment="Left" Margin="33,113,0,0" VerticalAlignment="Top" Height="120" Width="120" FontWeight="Bold" BorderThickness="2,1,1,2" BorderBrush="#FFA6ABAE"/>
         <Rectangle Height="78" Stroke="Black" AllowDrop="True" StrokeThickness="0.5" DragEnter="Rectangle_DragEnter" Drop="Rectangle_Drop" Fill="White" VerticalAlignment="Top" Margin="0,248,0,0"/>
         <Label x:Name="lblDragOvalFile" Content="Drag and Drop Oval File Here" Margin="0,260,0,0" VerticalAlignment="Top" Height="50" FontSize="22" FontWeight="Bold" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Foreground="#FFF51818" AllowDrop="True"/>
         <Label x:Name="lblFileLoaded" Content="Oval File Loaded" VerticalAlignment="Top" Height="60" Foreground="#FF31CB19" Background="#00000000" FontSize="28" FontWeight="Bold" FontStyle="Italic" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,257,0,0" Visibility="Hidden"/>
-        <GroupBox x:Name="grpLARotation" Header="Select L&amp;A Rotation" HorizontalAlignment="Left" Margin="226,113,0,0" VerticalAlignment="Top" Height="120" Width="145" FontWeight="Bold" BorderThickness="2,1,1,2" BorderBrush="#FFA6ABAE"/>
+        <Label x:Name="lblIlkProcessed" Content="" VerticalAlignment="Top" Height="60" Foreground="#FF31CB19" Background="#00000000" FontSize="28" FontWeight="Bold" FontStyle="Italic" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,257,0,0" Visibility="Hidden" />
+        <GroupBox x:Name="grpLARotation" Header="Select L&amp;A Rotation" HorizontalAlignment="Left" Margin="207,113,0,0" VerticalAlignment="Top" Height="120" Width="145" FontWeight="Bold" BorderThickness="2,1,1,2" BorderBrush="#FFA6ABAE"/>
         <Button x:Name="btnProcess" Content="THE &quot;GO&quot; BUTTON" Margin="33,0,0,19" Width="312" Height="26" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" VerticalAlignment="Bottom" HorizontalAlignment="Left" Click="btnProcess_Click"/>
         <Button x:Name="btnExit" Content="Exit" HorizontalAlignment="Left" Margin="553,0,0,19" Width="75" Height="26" Click="btnExit_Click" VerticalAlignment="Bottom"/>
         <Button x:Name="btnClear" Content="Clear" HorizontalAlignment="Left" Margin="459,0,0,19" VerticalAlignment="Bottom" Width="75" Height="26" Click="btnClear_Click"/>
-        <GroupBox x:Name="grpOptions" Header="Process Options" HorizontalAlignment="Left" Margin="420,113,0,0" VerticalAlignment="Top" Height="120" Width="189" FontWeight="Bold" BorderThickness="2,1,1,2" BorderBrush="#FFA6ABAE"/>
-        <StackPanel HorizontalAlignment="Left" Height="71" Margin="79,142,0,0" VerticalAlignment="Top" Width="81">
+        <GroupBox x:Name="grpOptions" Header="Process Options" HorizontalAlignment="Left" Margin="406,113,0,0" VerticalAlignment="Top" Height="120" Width="224" FontWeight="Bold" BorderThickness="2,1,1,2" BorderBrush="#FFA6ABAE"/>
+        <StackPanel HorizontalAlignment="Left" Height="71" Margin="51,142,0,0" VerticalAlignment="Top" Width="81">
             <StackPanel.Resources>
                 <local:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
             </StackPanel.Resources>
@@ -26,7 +27,7 @@
             <RadioButton IsChecked="{Binding TestDeck, ConverterParameter={x:Static local:TestDeckIlk.QC}, Converter={StaticResource EnumToBooleanConverter}}" x:Name="radQC" Content="QC" Margin="0,3,0,0"/>
             <RadioButton IsChecked="{Binding TestDeck, ConverterParameter={x:Static local:TestDeckIlk.WHSE}, Converter={StaticResource EnumToBooleanConverter}}" x:Name="radWHSE" Content="WHSE" Margin="0,3,0,0"/>
         </StackPanel>
-        <Grid x:Name="grdRotation" HorizontalAlignment="Left" Height="96" Margin="246,137,0,0" VerticalAlignment="Top" Width="111" IsEnabled="False">
+        <Grid x:Name="grdRotation" HorizontalAlignment="Left" Height="96" Margin="227,137,0,0" VerticalAlignment="Top" Width="111" IsEnabled="False">
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="10*"/>
@@ -45,21 +46,21 @@
             <Label x:Name="lblOther" Content="Other:" VerticalAlignment="Bottom" Width="45" Height="24" VerticalContentAlignment="Center" HorizontalAlignment="Left" Margin="1,0,0,10" Grid.ColumnSpan="2" HorizontalContentAlignment="Center"/>
             <TextBox x:Name="txtLARotationOther" TextWrapping="NoWrap"  Text="" Margin="4,0,12,10" Grid.Column="1" VerticalAlignment="Bottom" HorizontalAlignment="Center" Width="50" Height="21"/>
         </Grid>
-        <Grid x:Name="grdProcessSort" HorizontalAlignment="Left" Height="23" Margin="433,133,0,0" VerticalAlignment="Top" Width="170">
+        <Grid x:Name="grdProcessSort" HorizontalAlignment="Left" Height="23" Margin="412,133,0,0" VerticalAlignment="Top" Width="219">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="68*"/>
-                <ColumnDefinition Width="57*"/>
-                <ColumnDefinition Width="45*"/>
+                <ColumnDefinition Width="80*"/>
+                <ColumnDefinition Width="91*"/>
+                <ColumnDefinition Width="48*"/>
             </Grid.ColumnDefinitions>
             <Grid.Resources>
                 <local:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
             </Grid.Resources>
-            <RadioButton IsChecked="{Binding ProcessOpt, ConverterParameter={x:Static local:ProcessOptions.ByCard}, Converter={StaticResource EnumToBooleanConverter}}" x:Name="radByCard" Content="By Card" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,4,0,0" Height="15" Width="60"/>
-            <RadioButton IsChecked="{Binding ProcessOpt, ConverterParameter={x:Static local:ProcessOptions.ByBT}, Converter={StaticResource EnumToBooleanConverter}}" x:Name="radByBT" Content="By BT" Grid.Column="1" HorizontalAlignment="Left" Margin="0,4,0,0" VerticalAlignment="Top" Height="15" Width="48"/>
+            <RadioButton IsChecked="{Binding ProcessOpt, ConverterParameter={x:Static local:ProcessOptions.ByCard}, Converter={StaticResource EnumToBooleanConverter}}" x:Name="radByCard" Content="By Card" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="2,4,0,0" Height="15" Width="60"/>
+            <RadioButton IsChecked="{Binding ProcessOpt, ConverterParameter={x:Static local:ProcessOptions.ByPct}, Converter={StaticResource EnumToBooleanConverter}}" x:Name="radByPct" Content="By Precinct" Grid.Column="1" HorizontalAlignment="Left" Margin="0,4,0,0" VerticalAlignment="Top" Height="15" Width="88"/>
             <RadioButton IsChecked="{Binding ProcessOpt, ConverterParameter={x:Static local:ProcessOptions.All}, Converter={StaticResource EnumToBooleanConverter}}" x:Name="radAll" Content="ALL" Grid.Column="2" HorizontalAlignment="Left" Margin="0,4,0,0" VerticalAlignment="Top" Height="15" Width="38"/>
         </Grid>
-        <CheckBox x:Name="chkIncludeWriteIns" Content="Include Write-Ins (LA Only)" HorizontalAlignment="Left" Margin="433,166,0,0" VerticalAlignment="Top" Width="167" Click="chkIncludeWriteIns_Click"/>
-        <ComboBox x:Name="cboFileSplitSize" HorizontalAlignment="Left" Margin="446,195,0,0" VerticalAlignment="Top" Width="138" SelectedIndex="0" IsEditable="True" Text="Select Box Split Size"/>
+        <CheckBox x:Name="chkIncludeWriteIns" Content="Include Write-Ins (LA Only)" HorizontalAlignment="Left" Margin="435,166,0,0" VerticalAlignment="Top" Width="167" Click="chkIncludeWriteIns_Click"/>
+        <ComboBox x:Name="cboFileSplitSize" HorizontalAlignment="Left" Margin="448,195,0,0" VerticalAlignment="Top" Width="138" SelectedIndex="0" IsEditable="True" Text="Select Box Split Size"/>
         <Grid Margin="333,15,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Height="58">
             <Rectangle Fill="#FFB9D9F3" Height="55" Stroke="#FFA6ABAE" VerticalAlignment="Top" Width="306" HorizontalAlignment="Left" Margin="0,3,-11,0"/>
             <Label Content="County ID:" Grid.Column="0" HorizontalAlignment="Left" Margin="9,14,0,0" Grid.Row="0" VerticalAlignment="Top" Height="34" Width="73" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
@@ -95,6 +96,6 @@
         </Grid>
 
         <CheckBox x:Name="chkReporting" Content="Include Deckinator Report File" HorizontalAlignment="Left" Margin="61,70,0,0" VerticalAlignment="Top" IsChecked="True"/>
-        <Frame x:Name="frmAddCounty" LostFocus="frmAddCounty_LostFocus" BorderBrush="Black" BorderThickness="1" RenderTransformOrigin="0.5,0.5" />
+        <Frame x:Name="frmAddCounty" LostFocus="frmAddCounty_LostFocus" BorderBrush="Black" BorderThickness="1" RenderTransformOrigin="0.5,0.5" Margin="0,0,0,511" />
     </Grid>
 </Window>

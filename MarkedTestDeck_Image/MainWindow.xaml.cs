@@ -17,7 +17,7 @@ namespace MarkedTestDeck_Image
     public enum ProcessOptions
     {
         ByCard,
-        ByBT,
+        ByPct,
         All
     }
     public enum LARotation
@@ -56,6 +56,32 @@ namespace MarkedTestDeck_Image
 
     #endregion ENUMS
 
+
+    #region Label Event
+    public delegate void PopulateLabel(object sender, LabelEventArgs e);
+
+    public class LabelEventArgs : EventArgs
+    {
+        public string LabelText { get; set; }
+    }
+
+    public class MyLabel
+    {
+        public event PopulateLabel OnPopulateLabel;
+
+        public void WriteLabel(string label)
+        {
+            TestOptions options = new TestOptions();
+
+            LabelEventArgs e = new LabelEventArgs();
+            e.LabelText = label;
+
+            OnPopulateLabel(this, e);
+        }
+    }
+
+    #endregion Label Event
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
@@ -77,6 +103,7 @@ namespace MarkedTestDeck_Image
 
 
         #region MainWindow Properties
+        private bool process = false;
         private string path = string.Empty;
         private bool reporting;
         private string ilk = string.Empty;
@@ -166,22 +193,28 @@ namespace MarkedTestDeck_Image
             joinTable.Columns.Add("SortID", typeof(string));
             joinTable.Columns.Add("Precinct", typeof(string));
 
-            dl.OvalDT = qdt.Clone();
-
             try
             {
-                tempdt = dl.OvalDT.Clone();
                 string sort = QuerySortOvalDT();
 
                 if (options.TestDeck == TestDeckIlk.MULTI)
                 {
-                    IEnumerable<DataRow> tempQuery = from oval in qdt.AsEnumerable()
-                                                     where oval.Field<string>("MaxVotes") != "1"
-                                                     group oval by oval.Field<string>(sort) into grp
-                                                     select grp.First();
+                    qdt = null;
+
+                    IEnumerable<DataRow> multiVote = from multi in DataAccess.Instance.OvalDataTable.AsEnumerable()
+                                                     where multi.Field<string>("MaxVotes") != "1"
+                                                     select multi;
+
+                    qdt = multiVote.CopyToDataTable();
+                    DataAccess.Instance.OvalDataTable = qdt;
+
+                    IEnumerable < DataRow > tempQuery = from oval in qdt.AsEnumerable()
+                                                        where oval.Field<string>("MaxVotes") != "1"
+                                                        group oval by oval.Field<string>(sort) into grp
+                                                        select grp.First();
                     if (!tempQuery.Any())
                     {
-                        MessageBox.Show("There are no records to process Multivote Testdecks", "Multivote records is null", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBox.Show("There are no records to process Multivote Testdecks", "Multivote records are null", MessageBoxButton.OK, MessageBoxImage.Information);
                         throw new NullReferenceException("Table does not contain any multivote races");
                     }
                     else
@@ -198,15 +231,13 @@ namespace MarkedTestDeck_Image
                     tempdt = tempQuery.CopyToDataTable();
                 }
 
-                int count = 0;
-
                 for (int i = 0; i < tempdt.Rows.Count; i++)
                 {
                     joinTable.Rows.Add();
                     joinTable.Rows[i]["SortID"] = tempdt.Rows[i][sort];
                     joinTable.Rows[i]["Precinct"] = tempdt.Rows[i]["PrecinctID"];
 
-                    count = i + 1;
+                    int count = i + 1;
                     delCard(count.ToString());
                 }
 
@@ -225,7 +256,7 @@ namespace MarkedTestDeck_Image
                 {
                     votes = i + 1;
                     delVote(votes.ToString());
-                    Thread.Sleep(30);
+                    Thread.Sleep(10);
                 }
             }
             catch (Exception ex)
@@ -236,7 +267,6 @@ namespace MarkedTestDeck_Image
 
         private void DoWorkOnImages()
         {
-            DataTable dt = new DataTable();
             delUpdateBallotCount delBallot = new delUpdateBallotCount(UpdateBallotCountTextbox);            
             int imagesProcessed = 0;            
 
@@ -272,6 +302,12 @@ namespace MarkedTestDeck_Image
 
                 delBallot(gmc._count.ToString());
                 _totalBallots = gmc._count;
+
+                MyLabel ml = new MyLabel();
+                ml.OnPopulateLabel += new PopulateLabel(Ml_OnPopulateLabel);
+
+                ml.WriteLabel(ilk + " COMPLETED PROCESSING");
+
                 MessageBox.Show(options.TestDeck.ToString() + " Testdecks are completed \n\n   " + gmc._count + " total Testdecks processed",
                     "PROCESS COMPLETE!", MessageBoxButton.OK, MessageBoxImage.None);
             }
@@ -284,6 +320,16 @@ namespace MarkedTestDeck_Image
                 gmc._count = 0;
             }
         }
+        private void Ml_OnPopulateLabel(object sender, LabelEventArgs e)
+        {
+            Dispatcher.BeginInvoke((Action)(() => lblFileLoaded.Visibility = Visibility.Hidden)
+                , System.Windows.Threading.DispatcherPriority.Input);
+            Dispatcher.BeginInvoke((Action)(() => lblIlkProcessed.Content = e.LabelText)
+                , System.Windows.Threading.DispatcherPriority.Input);
+            Dispatcher.BeginInvoke((Action)(() => lblIlkProcessed.Visibility = Visibility.Visible)
+                , System.Windows.Threading.DispatcherPriority.Input);           
+            
+        }
 
         private void SaveGMCTextFile(string savedPath)
         {            
@@ -295,7 +341,30 @@ namespace MarkedTestDeck_Image
                 gmc.SaveDeckReportTextFile(savedPath, countyID);
             }
         }
+
+        private void ClearAndDisposeMethod()
+        {
+            txtBallotCount.Text = "";
+            txtCardCount.Text = "";
+            txtImageCount.Text = "";
+            txtImageFileName.Text = "";
+            txtLARotationOther.Text = "";
+            txtVoteCount.Text = "";
+            lblFileLoaded.Visibility = Visibility.Hidden;
+            lblIlkProcessed.Visibility = Visibility.Hidden;
+            lblIlkProcessed.Content = "";
+            lblDragOvalFile.Visibility = Visibility.Visible;
+            DataAccess.Instance.OvalDataTable = null;
+            dl.Dispose();
+            gmc.Dispose();
+            deck.Dispose();
+            addCounty = null;
+            pdfTestIlk = null;
+            process = false;
+        }
+
         #endregion Main Methods
+
 
         #region Window Buttons
 
@@ -320,7 +389,11 @@ namespace MarkedTestDeck_Image
                 workerThread.IsBackground = true;
                 workerThread.Start();
 
-                Thread.Sleep(100);
+                //Thread.Sleep(10);                
+
+                //lblFileLoaded.Visibility = Visibility.Hidden;
+                //lblIlkProcessed.Content = options.TestDeck.ToString() + " Testdeck PROCESS COMPLETE";
+                //lblIlkProcessed.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
@@ -328,7 +401,9 @@ namespace MarkedTestDeck_Image
             }
             Cursor = Cursors.Arrow;
             MainWindow m = new MainWindow();
-        }
+            process = true;
+        }        
+
         private void btnAddCounty_Click(object sender, RoutedEventArgs e)
         {
             addCounty = new AddCountyId();
@@ -350,25 +425,13 @@ namespace MarkedTestDeck_Image
 
         private void btnClear_Click(object sender, RoutedEventArgs e)
         {
-            txtBallotCount.Text = "";
-            txtCardCount.Text = "";
-            txtImageCount.Text = "";
-            txtImageFileName.Text = "";
-            txtLARotationOther.Text = "";
-            txtVoteCount.Text = "";
-            lblFileLoaded.Visibility = Visibility.Hidden;
-            lblDragOvalFile.Visibility = Visibility.Visible;
-            dl.Dispose();
-            gmc.Dispose();
-            deck.Dispose();
-            addCounty = null;
-            pdfTestIlk = null;
+            ClearAndDisposeMethod();
         }
         #endregion Window Buttons
 
 
         #region Background Thread
-
+        
         public delegate void delUpdateUITextbox(string fileName, string imageCount);
         public delegate void delUpdateCardCount(string card);
         public delegate void delUpdateVoteCount(string vote);
@@ -443,8 +506,8 @@ namespace MarkedTestDeck_Image
                 case ProcessOptions.ByCard:
                 sort = "CardStyle";
                 break;
-                case ProcessOptions.ByBT:
-                sort = "BallotStyle";
+                case ProcessOptions.ByPct:
+                sort = "PrecinctID";
                 break;
                 case ProcessOptions.All:
                 sort = "SortKey";
@@ -497,6 +560,7 @@ namespace MarkedTestDeck_Image
                 case TestDeckIlk.MULTI:
                 pdf.IsMULTI = true;
                 gmc.IsMULTI = true;
+                dl.IsMultiVote = true;
                 ilk = "MULTI";
                 break;
                 case TestDeckIlk.QC:
@@ -516,8 +580,28 @@ namespace MarkedTestDeck_Image
 
         private void chkIncludeWriteIns_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Be sure to clear Oval Data. \n\nPlease redrop the Oval file to the program",
-                "WARNING!!! RELOAD OVAL DATA", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (DataAccess.Instance.OvalDataTable.Rows.Count != 0 && process == true)
+            {
+                MessageBoxResult resetQuestion = MessageBox.Show("You need to reload Oval Data before you can select this option. \n\nWould you like to clear the Oval Data?",
+                "WARNING!!! OVAL DATA MUST BE RELOADED", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+                if (resetQuestion == MessageBoxResult.Yes)
+                {
+                    ClearAndDisposeMethod();                    
+                }
+                else
+                {
+                    if (chkIncludeWriteIns.IsChecked == true)
+                    {
+                        chkIncludeWriteIns.IsChecked = false;
+                    }
+                    else
+                    {
+                        chkIncludeWriteIns.IsChecked = true;
+                    }
+                        
+                }
+            }            
         }
         #endregion Window Attributes
     }

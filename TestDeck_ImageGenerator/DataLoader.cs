@@ -19,6 +19,7 @@ namespace TestDeck_ImageGenerator
         {
 
         }
+        public bool IsMultiVote { get; set; }
         public int MaxNumOfCandidate { get; set; }
         public int IsWriteIn { get; set; }
         public DataTable PositionDT { get; set; }
@@ -54,7 +55,7 @@ namespace TestDeck_ImageGenerator
             {
                 dt = xyc.GetXYCoordinates(FileName);
 
-                dt.Columns.Add("RaceNbr", typeof(int));
+                //dt.Columns.Add("RaceNbr", typeof(int));
                 dt.Columns.Add("RacePosn", typeof(int));
                 dt.Columns.Add("TtlRaceOvals", typeof(int));
                 dt.Columns.Add("RecNbr", typeof(int));
@@ -78,36 +79,44 @@ namespace TestDeck_ImageGenerator
         {
             OvalFileName = dt.Rows[0]["BallotImage"].ToString();
 
-            foreach (DataColumn oval in OvalDT.Columns)
+            try
             {
-                if (oval.ColumnName.Contains("BallotImageFront"))
+
+                foreach (DataColumn oval in OvalDT.Columns)
                 {
-                    string columnToSearch = oval.ColumnName.ToString();
-                    int rowIndex = 0;
-
-                    foreach (DataRow row in OvalDT.Rows)
+                    if (oval.ColumnName.Contains("BallotImageFront"))
                     {
-                        if (row[columnToSearch].ToString() == OvalFileName)
-                        {
-                            rowIndex = OvalDT.Rows.IndexOf(row);
+                        string columnToSearch = oval.ColumnName.ToString();
+                        int rowIndex = 0;
 
-                            for (int i = 0; i < dt.Rows.Count; i++)
+                        foreach (DataRow row in OvalDT.Rows)
+                        {
+                            if (row[columnToSearch].ToString() == OvalFileName)
                             {
-                                dt.Rows[i]["RacePosn"] = OvalDT.Rows[rowIndex]["OvalPosition"];
-                                dt.Rows[i]["IsWriteIn"] = OvalDT.Rows[rowIndex]["IsWriteIn"];
-                                dt.Rows[i]["TtlRaceOvals"] = OvalDT.Rows[rowIndex]["TotalVotes"];
-                                dt.Rows[i]["MaxVotes"] = OvalDT.Rows[rowIndex]["MaxVotes"];
-                                dt.Rows[i]["RecNbr"] = i + 1;
-                                rowIndex++;                           
+                                rowIndex = OvalDT.Rows.IndexOf(row);
+
+                                for (int i = 0; i < dt.Rows.Count; i++)
+                                {
+                                    dt.Rows[i]["RacePosn"] = OvalDT.Rows[rowIndex]["OvalPosition"];
+                                    dt.Rows[i]["IsWriteIn"] = OvalDT.Rows[rowIndex]["IsWriteIn"];
+                                    dt.Rows[i]["TtlRaceOvals"] = OvalDT.Rows[rowIndex]["TotalVotes"];
+                                    dt.Rows[i]["MaxVotes"] = OvalDT.Rows[rowIndex]["MaxVotes"];
+                                    dt.Rows[i]["RecNbr"] = i + 1;
+                                    rowIndex++;
+                                }
+                                break;
                             }
-                            break;                            
-                        }                        
+                        }
+                        break;
                     }
-                    break;
-                }             
+                }
+                //RetrieveRaceNbr(dt);
             }
-            RetrieveRaceNbr(dt);
-            
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "ERROR IN: DataLoader.UpdatePositionData");
+                throw;
+            }
             return dt;
         }
 
@@ -116,24 +125,34 @@ namespace TestDeck_ImageGenerator
             int totalArrows = 0;
             int racePosn = 0;
             int raceNbr = 1;
+            int maxVotes = 0;
 
-            for (int i = 0; i < dt.Rows.Count; i++)
+            try
             {
-                totalArrows = Convert.ToInt32(dt.Rows[i]["TtlRaceOvals"]);
-                racePosn = Convert.ToInt32(dt.Rows[i]["RacePosn"]);
-
-                if (totalArrows > racePosn)
+                for (int i = 0; i < dt.Rows.Count; i++)
                 {
-                    for (int j = i; j < (totalArrows + i) - 1; j++)
+                    totalArrows = Convert.ToInt32(dt.Rows[i]["TtlRaceOvals"]);
+                    racePosn = Convert.ToInt32(dt.Rows[i]["RacePosn"]);
+                    maxVotes = Convert.ToInt32(dt.Rows[i]["MaxVotes"]);
+
+                    if (totalArrows > racePosn)
                     {
-                        dt.Rows[j]["RaceNbr"] = raceNbr;
+                        for (int j = i; j < (totalArrows + i) - 1; j++)
+                        {
+                            dt.Rows[j]["RaceNbr"] = raceNbr;
+                        }
+                    }
+                    else
+                    {
+                        dt.Rows[i]["RaceNbr"] = raceNbr;
+                        raceNbr++;
                     }
                 }
-                else
-                {
-                    dt.Rows[i]["RaceNbr"] = raceNbr;
-                    raceNbr++;
-                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "ERROR IN: DataLoader.RetrieveRaceNbr");
+                throw;
             }
             return dt;
         }
