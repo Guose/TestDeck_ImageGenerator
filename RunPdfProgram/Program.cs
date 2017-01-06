@@ -70,7 +70,7 @@ namespace RunPdfProgram
 
             string savedImages = Path.Combine(pdfPath, "Processed Images");
 
-            gmc.SaveGMCTextfile(savedImages, DataAccess.Instance.VotePositionTable, countyId);
+            //gmc.SaveGMCTextfile(savedImages, DataAccess.Instance.VotePositionTable, countyId);
 
             stopWatch.Stop();
 

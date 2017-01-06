@@ -22,10 +22,9 @@ namespace TestDeck_ImageGenerator
             // SECOND DRAW A LINE USING DRAWLINE METHOD - ARGUMENTS ARE: 1 = PEN, 2 = X COORD., 3 = Y COORD., 4 = LENGTH OF LINE, 5 = Y COORD.
             // Y COORD. ARE ACTUALLY -2 FROM DATA
             // LENGTH SHOULD BE -32 FROM X COORD.
-            int len = x - 32;
-            y = y - 3;
+            int len = x + 35;
 
-            var pen = new XPen(XColors.Black, 3);
+            var pen = new XPen(XColors.Black, 2);
             gfx.DrawLine(pen, x, y, len, y);
 
         }

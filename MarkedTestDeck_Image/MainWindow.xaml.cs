@@ -63,18 +63,22 @@ namespace MarkedTestDeck_Image
     public class LabelEventArgs : EventArgs
     {
         public string LabelText { get; set; }
+        public string Message { get; set; }
+        public string Caption { get; set; }
     }
 
     public class MyLabel
     {
         public event PopulateLabel OnPopulateLabel;
 
-        public void WriteLabel(string label)
+        public void WriteLabel(string label, string message, string caption)
         {
             TestOptions options = new TestOptions();
 
             LabelEventArgs e = new LabelEventArgs();
             e.LabelText = label;
+            e.Message = message;
+            e.Caption = caption;
 
             OnPopulateLabel(this, e);
         }
@@ -93,6 +97,8 @@ namespace MarkedTestDeck_Image
 
             DataAccess.Instance.VotePositionTable = new DataTable();
             DataAccess.Instance.DeckinatorTable = new DataTable();
+            DataAccess.Instance.MultiVoteTable = DataAccess.Instance.OvalDataTable.Clone();
+
             AddBoxQuantityToComboBox();
 
             options = new TestOptions();
@@ -103,7 +109,9 @@ namespace MarkedTestDeck_Image
 
 
         #region MainWindow Properties
-        private bool process = false;
+
+        private int fileBreak;
+        private bool process;
         private string path = string.Empty;
         private bool reporting;
         private string ilk = string.Empty;
@@ -116,9 +124,10 @@ namespace MarkedTestDeck_Image
         private PDFLoader pdfTestIlk = new PDFLoader();
         private DataLoader dl = new DataLoader();
         private GMCTextFile gmc = new GMCTextFile();
-        private DeckinatorReport deck = new DeckinatorReport();
+        private DeckinatorReport deck;
         private FileInfo fi;
-        private int fileBreak;
+        private DataTable ovalDtRaw;
+        
         #endregion MainWindow Properties
 
 
@@ -146,6 +155,9 @@ namespace MarkedTestDeck_Image
                 }
             }
             DataAccess.Instance.OvalDataTable = FileDelimeter.DataFromTextFile(path, '|');
+
+            ovalDtRaw = DataAccess.Instance.OvalDataTable.Copy();
+
             lblFileLoaded.Visibility = Visibility.Visible;
             Cursor = Cursors.Arrow;
         }
@@ -169,24 +181,10 @@ namespace MarkedTestDeck_Image
         private void QueryProcessOptions()
         {
             delUpdateCardCount delCard = new delUpdateCardCount(UpdateCardCountTextbox);
-            delUpdateVoteCount delVote = new delUpdateVoteCount(UpdateVoteCountTextbox);
 
-            DataTable qdt = null;
+            DataTable qdt = new DataTable();
 
-            if (includeWriteIns == false)
-            {
-                IEnumerable<DataRow> removeWriteIns = from oval in DataAccess.Instance.OvalDataTable.AsEnumerable()
-                                                      where oval.Field<string>("IsWriteIn") == "0"
-                                                      select oval;
-
-                qdt = removeWriteIns.CopyToDataTable();
-                DataAccess.Instance.OvalDataTable = qdt;
-            }
-            else
-            {
-                qdt = DataAccess.Instance.OvalDataTable;
-            }
-
+            qdt = DataAccess.Instance.OvalDataTable;
             DataTable tempdt = new DataTable();
             DataTable joinTable = new DataTable();
 
@@ -199,69 +197,78 @@ namespace MarkedTestDeck_Image
 
                 if (options.TestDeck == TestDeckIlk.MULTI)
                 {
+                    dl.IsMultiVote = true;
                     qdt = null;
 
                     IEnumerable<DataRow> multiVote = from multi in DataAccess.Instance.OvalDataTable.AsEnumerable()
-                                                     where multi.Field<string>("MaxVotes") != "1"
+                                                     where multi.Field<string>("MaxVotes") != "1" 
+                                                     && multi.Field<string>("MaxVotes") != "0"
                                                      select multi;
-
-                    qdt = multiVote.CopyToDataTable();
-                    DataAccess.Instance.OvalDataTable = qdt;
-
-                    IEnumerable < DataRow > tempQuery = from oval in qdt.AsEnumerable()
-                                                        where oval.Field<string>("MaxVotes") != "1"
-                                                        group oval by oval.Field<string>(sort) into grp
-                                                        select grp.First();
-                    if (!tempQuery.Any())
+                    
+                    if (!multiVote.Any())
                     {
-                        MessageBox.Show("There are no records to process Multivote Testdecks", "Multivote records are null", MessageBoxButton.OK, MessageBoxImage.Information);
-                        throw new NullReferenceException("Table does not contain any multivote races");
+                        throw new NullReferenceException("There are no MultiVote records to process");                        
                     }
                     else
                     {
+                        qdt = multiVote.CopyToDataTable();
+                        //DataAccess.Instance.OvalDataTable = qdt;
+
+                        IEnumerable<DataRow> tempQuery = from oval in qdt.AsEnumerable()
+                                                         where oval.Field<string>("MaxVotes") != "1"
+                                                         && oval.Field<string>("MaxVotes") != "0"
+                                                         group oval by oval.Field<string>(sort) into grp
+                                                         select grp.First();
+
                         tempdt = tempQuery.CopyToDataTable();
                     }                    
                 }
                 else
                 {
+                    //Group By sort ie Card or Pct or Every Pct
                     IEnumerable<DataRow> tempQuery = from oval in qdt.AsEnumerable()
                                                      group oval by oval.Field<string>(sort) into grp
                                                      select grp.First();
 
                     tempdt = tempQuery.CopyToDataTable();
                 }
-
-                for (int i = 0; i < tempdt.Rows.Count; i++)
+                if (tempdt != null)
                 {
-                    joinTable.Rows.Add();
-                    joinTable.Rows[i]["SortID"] = tempdt.Rows[i][sort];
-                    joinTable.Rows[i]["Precinct"] = tempdt.Rows[i]["PrecinctID"];
+                    for (int i = 0; i < tempdt.Rows.Count; i++)
+                    {
+                        joinTable.Rows.Add();
+                        joinTable.Rows[i]["SortID"] = tempdt.Rows[i][sort];
+                        joinTable.Rows[i]["Precinct"] = tempdt.Rows[i]["PrecinctID"];                        
+                    }
 
-                    int count = i + 1;
-                    delCard(count.ToString());
-                }
+                    IEnumerable<DataRow> sortQuery = from q in joinTable.AsEnumerable()
+                                                     join ov in qdt.AsEnumerable()
+                                                     on q.Field<string>("SortID") equals
+                                                     ov.Field<string>(sort)
+                                                     where q.Field<string>("SortID") == ov.Field<string>(sort)
+                                                     && q.Field<string>("Precinct") == ov.Field<string>("PrecinctID")
+                                                     select ov;
 
-                IEnumerable<DataRow> sortQuery = from q in joinTable.AsEnumerable()
-                                                 join ov in qdt.AsEnumerable()
-                                                 on q.Field<string>("SortID") equals
-                                                 ov.Field<string>(sort)
-                                                 where q.Field<string>("SortID") == ov.Field<string>(sort)
-                                                 && q.Field<string>("Precinct") == ov.Field<string>("PrecinctID")
-                                                 select ov;
+                    dl.OvalDT = sortQuery.CopyToDataTable();
 
-                dl.OvalDT = sortQuery.CopyToDataTable();
+                    int ovalRowCount = dl.OvalDT.Rows.Count;
 
-                int votes = 0;
-                for (int i = 0; i < dl.OvalDT.Rows.Count; i++)
-                {
-                    votes = i + 1;
-                    delVote(votes.ToString());
-                    Thread.Sleep(10);
-                }
+                    IEnumerable<DataRow> cardCount = from c in qdt.AsEnumerable()
+                                                     group c by c.Field<string>("CardStyle") into g
+                                                     select g.First();
+
+                    DataTable card = cardCount.CopyToDataTable();
+
+                    for (int i = 0; i < card.Rows.Count; i++)
+                    {
+                        int count = i + 1;
+                        delCard(count.ToString());
+                    }
+                }                
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "ERROR", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+                throw new Exception(ex.Message);
             }
         }
 
@@ -274,6 +281,9 @@ namespace MarkedTestDeck_Image
             {
                 fi = new FileInfo(path);
                 string pdfPath = fi.DirectoryName + @"\Images\";
+
+                delUpdateVoteCount delVote = new delUpdateVoteCount(UpdateVoteCountTextbox);
+
                 QueryProcessOptions();
 
                 foreach (var file in dl.RetrievePdfFileNames(pdfPath))
@@ -298,28 +308,35 @@ namespace MarkedTestDeck_Image
                     mydel(name, imagesProcessed.ToString());
                 }
 
-                SaveGMCTextFile(_savedPath);
+                int votes = 0;
+                for (int i = 0; i < DataAccess.Instance.DeckinatorTable.Rows.Count; i++)
+                {
+                    votes = i + 1;
+                    delVote(votes.ToString());
+                }
+
+                SaveGMCTextFile(_savedPath);                
 
                 delBallot(gmc._count.ToString());
                 _totalBallots = gmc._count;
+                string message = options.TestDeck.ToString() + " Testdecks are completed \n\n   " + gmc._count + " total Testdecks processed";
+                string caption = "PROCESS COMPLETE!";
 
                 MyLabel ml = new MyLabel();
                 ml.OnPopulateLabel += new PopulateLabel(Ml_OnPopulateLabel);
 
-                ml.WriteLabel(ilk + " COMPLETED PROCESSING");
-
-                MessageBox.Show(options.TestDeck.ToString() + " Testdecks are completed \n\n   " + gmc._count + " total Testdecks processed",
-                    "PROCESS COMPLETE!", MessageBoxButton.OK, MessageBoxImage.None);
+                ml.WriteLabel(ilk + " COMPLETED PROCESSING", message, caption);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "IS OVAL FILE LOADED TO THE PROGRAM???", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, "ERROR", MessageBoxButton.OK, MessageBoxImage.Error);                
             }
             finally
             {                
                 gmc._count = 0;
             }
         }
+
         private void Ml_OnPopulateLabel(object sender, LabelEventArgs e)
         {
             Dispatcher.BeginInvoke((Action)(() => lblFileLoaded.Visibility = Visibility.Hidden)
@@ -327,13 +344,14 @@ namespace MarkedTestDeck_Image
             Dispatcher.BeginInvoke((Action)(() => lblIlkProcessed.Content = e.LabelText)
                 , System.Windows.Threading.DispatcherPriority.Input);
             Dispatcher.BeginInvoke((Action)(() => lblIlkProcessed.Visibility = Visibility.Visible)
-                , System.Windows.Threading.DispatcherPriority.Input);           
+                , System.Windows.Threading.DispatcherPriority.Input);
+            Dispatcher.BeginInvoke((Action)(() => MessageBox.Show(e.Message, e.Caption))
+                , System.Windows.Threading.DispatcherPriority.Input);
             
         }
 
         private void SaveGMCTextFile(string savedPath)
-        {            
-            //gmc.SaveGMCTextfile(savedPath, DataAccess.Instance.VotePositionTable, countyID);
+        {
             gmc.GenerateGMCTextFile(savedPath, DataAccess.Instance.VotePositionTable, countyID);
 
             if (reporting)
@@ -344,6 +362,8 @@ namespace MarkedTestDeck_Image
 
         private void ClearAndDisposeMethod()
         {
+            deck = new DeckinatorReport();
+
             txtBallotCount.Text = "";
             txtCardCount.Text = "";
             txtImageCount.Text = "";
@@ -355,6 +375,7 @@ namespace MarkedTestDeck_Image
             lblIlkProcessed.Content = "";
             lblDragOvalFile.Visibility = Visibility.Visible;
             DataAccess.Instance.OvalDataTable = null;
+            ovalDtRaw = null;
             dl.Dispose();
             gmc.Dispose();
             deck.Dispose();
@@ -370,6 +391,15 @@ namespace MarkedTestDeck_Image
 
         private void btnProcess_Click(object sender, RoutedEventArgs e)
         {
+            if (txtBallotCount.Text != "")
+            {
+                txtBallotCount.Text = "";
+                txtCardCount.Text = "";
+                txtImageCount.Text = "";
+                txtImageFileName.Text = "";
+                txtVoteCount.Text = "";
+            }            
+
             try
             {
                 Cursor = Cursors.AppStarting;
@@ -383,21 +413,17 @@ namespace MarkedTestDeck_Image
                     gmc.FileBreak = fileBreak;
                 }
                 else
+                {
                     throw new Exception();
+                }                
 
                 workerThread = new Thread(DoWorkOnImages);
                 workerThread.IsBackground = true;
                 workerThread.Start();
-
-                //Thread.Sleep(10);                
-
-                //lblFileLoaded.Visibility = Visibility.Hidden;
-                //lblIlkProcessed.Content = options.TestDeck.ToString() + " Testdeck PROCESS COMPLETE";
-                //lblIlkProcessed.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Please select box split quantity \n\n" + ex.Message, "WARNING", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Check BOX SPLIT parameter \n\n" + ex.Message, "WARNING MAIN METHOD ERROR", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             Cursor = Cursors.Arrow;
             MainWindow m = new MainWindow();
@@ -414,6 +440,8 @@ namespace MarkedTestDeck_Image
 
         private void btnExit_Click(object sender, RoutedEventArgs e)
         {
+            deck = new DeckinatorReport();
+
             dl.Dispose();
             gmc.Dispose();
             deck.Dispose();
@@ -427,6 +455,7 @@ namespace MarkedTestDeck_Image
         {
             ClearAndDisposeMethod();
         }
+
         #endregion Window Buttons
 
 
@@ -534,7 +563,7 @@ namespace MarkedTestDeck_Image
                     gmc.Rotation = 5;
                     break;
                     case LARotation.Max:
-                    gmc.Rotation = 100;
+                    gmc.Rotation = 8;
                     break;
                     default:
                     if (txtLARotationOther.Text != "")
@@ -555,7 +584,7 @@ namespace MarkedTestDeck_Image
                 case TestDeckIlk.LA:
                 pdf.IsLA = true;
                 gmc.IsLA = true;
-                ilk = "L&A";                
+                ilk = "LA";                
                 break;
                 case TestDeckIlk.MULTI:
                 pdf.IsMULTI = true;
@@ -578,31 +607,6 @@ namespace MarkedTestDeck_Image
             }
         }
 
-        private void chkIncludeWriteIns_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataAccess.Instance.OvalDataTable.Rows.Count != 0 && process == true)
-            {
-                MessageBoxResult resetQuestion = MessageBox.Show("You need to reload Oval Data before you can select this option. \n\nWould you like to clear the Oval Data?",
-                "WARNING!!! OVAL DATA MUST BE RELOADED", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-
-                if (resetQuestion == MessageBoxResult.Yes)
-                {
-                    ClearAndDisposeMethod();                    
-                }
-                else
-                {
-                    if (chkIncludeWriteIns.IsChecked == true)
-                    {
-                        chkIncludeWriteIns.IsChecked = false;
-                    }
-                    else
-                    {
-                        chkIncludeWriteIns.IsChecked = true;
-                    }
-                        
-                }
-            }            
-        }
         #endregion Window Attributes
     }
 }

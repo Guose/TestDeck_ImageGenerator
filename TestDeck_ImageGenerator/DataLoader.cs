@@ -4,6 +4,7 @@ using System.Data;
 using XYCoordinates;
 using System.Linq;
 using System.Windows;
+using System.IO;
 
 namespace TestDeck_ImageGenerator
 {
@@ -33,6 +34,18 @@ namespace TestDeck_ImageGenerator
             DataTable pdfName = new DataTable();
             List<string> fileList = new List<string>();
 
+            double page = 0;
+            for (int j = 0; j < OvalDT.Rows.Count; j++)
+            {
+                string back = OvalDT.Rows[j]["BallotImageBack"].ToString();
+                page = Convert.ToDouble(OvalDT.Rows[j]["Pge"]);
+
+                if (page > 1)
+                {
+                    OvalDT.Rows[j]["BallotImageFront"] = back;
+                }
+            }
+
             IEnumerable<DataRow> pdfFileList = from pdf in OvalDT.AsEnumerable()
                                                 group pdf by pdf.Field<string>("BallotImageFront") into grp
                                                 select grp.First();
@@ -41,7 +54,7 @@ namespace TestDeck_ImageGenerator
 
             for (int i = 0; i < pdfName.Rows.Count; i++)
             {
-                fileList.Add(path + pdfName.Rows[i]["BallotImageFront"].ToString() + ".pdf");
+                fileList.Add(path + pdfName.Rows[i]["BallotImageFront"].ToString());
             }
             return fileList;
         }
@@ -49,28 +62,63 @@ namespace TestDeck_ImageGenerator
         public DataTable GeneratePositionDataTable()
         {
             DataTable dt = new DataTable();
-            ArrowCoordinates xyc = new ArrowCoordinates(OvalDT);
+            string textFile = Path.GetFileNameWithoutExtension(FileName);
+            string path = Path.GetDirectoryName(FileName);
+            string fullPathTxtFile = path + @"\" + textFile + "_ArrowCoord.txt";
+
+
+            // TO DO: Query out all other images except those that are the same as front image and page 2
+
+            double page = 0;
+            for (int j = 0; j < DataAccess.Instance.OvalDataTable.Rows.Count; j++)
+            {
+                string back = DataAccess.Instance.OvalDataTable.Rows[j]["BallotImageBack"].ToString();
+                page = Convert.ToDouble(DataAccess.Instance.OvalDataTable.Rows[j]["Pge"]);
+
+                if (page > 1)
+                {
+                    DataAccess.Instance.OvalDataTable.Rows[j]["BallotImageFront"] = back;
+                }
+            }
 
             try
             {
-                dt = xyc.GetXYCoordinates(FileName);
+                dt = FileDelimeter.DataFromTextFile(fullPathTxtFile, '|');                
 
-                //dt.Columns.Add("RaceNbr", typeof(int));
+                dt.Columns.Add("RaceID", typeof(int));
                 dt.Columns.Add("RacePosn", typeof(int));
                 dt.Columns.Add("TtlRaceOvals", typeof(int));
                 dt.Columns.Add("RecNbr", typeof(int));
                 dt.Columns.Add("IsWriteIn", typeof(int));
                 dt.Columns.Add("MaxVotes", typeof(int));
+                dt.Columns.Add("Page", typeof(double));
+                dt.Columns.Add("TtlWriteIns", typeof(int));
 
-                dt = UpdatePositionData(dt);
+                DataTable dt2Sort = dt.Clone();
+                dt2Sort.Columns["XCoord"].DataType = Type.GetType("System.Int32");
+                dt2Sort.Columns["YCoord"].DataType = Type.GetType("System.Int32");
+
+                foreach (DataRow dr in dt.Rows)
+                {
+                    dt2Sort.ImportRow(dr);
+                }
+                dt2Sort.AcceptChanges();
+
+                //Sort Coordinates ascending order
+                DataView sort = dt2Sort.DefaultView;
+                sort.Sort = "XCoord, YCoord ASC";
+                dt2Sort = sort.ToTable();
+
+                dt = UpdatePositionData(dt2Sort);
+
                 DataView dv = dt.DefaultView;
-                dv.Sort = "RacePosn";
+                dv.Sort = "RacePosn, TtlRaceOvals ASC";
                 dt = dv.ToTable();                
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "ERROR IN: DataLoader.GeneratePositionDataTable");
-                throw;
+                //throw;
             }
             return dt;
         }
@@ -78,80 +126,133 @@ namespace TestDeck_ImageGenerator
         private DataTable UpdatePositionData(DataTable dt)
         {
             OvalFileName = dt.Rows[0]["BallotImage"].ToString();
+            bool writeInRace = false;
+            bool verOneWrtIn = false;
 
             try
             {
+                IEnumerable<DataRow> wrtInDataFile = from data in DataAccess.Instance.OvalDataTable.AsEnumerable()
+                                                     where data.Field<string>("RaceWithWriteIn") != "0"
+                                                     select data;
 
-                foreach (DataColumn oval in OvalDT.Columns)
+                if (!wrtInDataFile.Any())
+                    verOneWrtIn = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+
+            try
+            {
+                foreach (DataColumn oval in DataAccess.Instance.OvalDataTable.Columns)
                 {
                     if (oval.ColumnName.Contains("BallotImageFront"))
                     {
                         string columnToSearch = oval.ColumnName.ToString();
                         int rowIndex = 0;
 
-                        foreach (DataRow row in OvalDT.Rows)
+                        foreach (DataRow row in DataAccess.Instance.OvalDataTable.Rows)
                         {
                             if (row[columnToSearch].ToString() == OvalFileName)
                             {
-                                rowIndex = OvalDT.Rows.IndexOf(row);
+                                rowIndex = DataAccess.Instance.OvalDataTable.Rows.IndexOf(row);
 
-                                for (int i = 0; i < dt.Rows.Count; i++)
+                                if (verOneWrtIn)
                                 {
-                                    dt.Rows[i]["RacePosn"] = OvalDT.Rows[rowIndex]["OvalPosition"];
-                                    dt.Rows[i]["IsWriteIn"] = OvalDT.Rows[rowIndex]["IsWriteIn"];
-                                    dt.Rows[i]["TtlRaceOvals"] = OvalDT.Rows[rowIndex]["TotalVotes"];
-                                    dt.Rows[i]["MaxVotes"] = OvalDT.Rows[rowIndex]["MaxVotes"];
-                                    dt.Rows[i]["RecNbr"] = i + 1;
-                                    rowIndex++;
+                                    for (int i = 0; i < dt.Rows.Count; i++)
+                                    {
+                                        int totalRaceOvals = Convert.ToInt32(DataAccess.Instance.OvalDataTable.Rows[rowIndex]["TotalVotes"]);
+                                        int racePosn = Convert.ToInt32(DataAccess.Instance.OvalDataTable.Rows[rowIndex]["OvalPosition"]);
+
+                                        dt.Rows[i]["RaceID"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex]["RaceID"];
+                                        dt.Rows[i]["RacePosn"] = racePosn;
+                                        dt.Rows[i]["IsWriteIn"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex]["IsWriteIn"];
+                                        dt.Rows[i]["TtlRaceOvals"] = totalRaceOvals;
+                                        dt.Rows[i]["MaxVotes"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex]["MaxVotes"];
+                                        dt.Rows[i]["RecNbr"] = i + 1;
+                                        dt.Rows[i]["Page"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex]["Pge"];
+                                        dt.Rows[i]["TtlWriteIns"] = 0;
+                                        rowIndex++;
+                                    }
                                 }
+                                else
+                                {
+                                    for (int i = 0; i < dt.Rows.Count; i++)
+                                    {
+                                        int adjustIndex = 0;
+                                        int totalRaceOvals = Convert.ToInt32(DataAccess.Instance.OvalDataTable.Rows[rowIndex]["TotalVotes"]);
+                                        int racePosn = Convert.ToInt32(DataAccess.Instance.OvalDataTable.Rows[rowIndex]["OvalPosition"]);
+                                        int raceWithWriteIn = Convert.ToInt32(DataAccess.Instance.OvalDataTable.Rows[rowIndex]["RaceWithWriteIn"]);
+                                        int writeInCand = totalRaceOvals - (racePosn + raceWithWriteIn);
+
+                                        if (writeInRace == false)
+                                        {
+                                            dt.Rows[i]["RaceID"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex]["RaceID"];
+                                            dt.Rows[i]["RacePosn"] = racePosn;
+                                            dt.Rows[i]["IsWriteIn"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex]["IsWriteIn"];
+                                            dt.Rows[i]["TtlRaceOvals"] = totalRaceOvals;
+                                            dt.Rows[i]["MaxVotes"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex]["MaxVotes"];
+                                            dt.Rows[i]["RecNbr"] = i + 1;
+                                            dt.Rows[i]["Page"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex]["Pge"];
+                                            dt.Rows[i]["TtlWriteIns"] = raceWithWriteIn;
+                                            rowIndex++;
+                                        }
+                                        else
+                                        {
+                                            int loop = Convert.ToInt32(DataAccess.Instance.OvalDataTable.Rows[rowIndex - 1]["RaceWithWriteIn"]);
+                                            int ttlWriteIns = loop;
+                                            do
+                                            {
+                                                // if candidate is a write in it runs this code.
+                                                dt.Rows[i + adjustIndex]["RaceID"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex - 1]["RaceID"];
+                                                dt.Rows[i + adjustIndex]["RacePosn"] = Convert.ToInt32(DataAccess.Instance.OvalDataTable.Rows[rowIndex - 1]["OvalPosition"]) + (adjustIndex + 1);
+                                                dt.Rows[i + adjustIndex]["IsWriteIn"] = 1;
+                                                dt.Rows[i + adjustIndex]["TtlRaceOvals"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex - 1]["TotalVotes"];
+                                                dt.Rows[i + adjustIndex]["MaxVotes"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex - 1]["MaxVotes"];
+                                                dt.Rows[i + adjustIndex]["RecNbr"] = i + (adjustIndex + 1);
+                                                dt.Rows[i + adjustIndex]["Page"] = DataAccess.Instance.OvalDataTable.Rows[rowIndex - 1]["Pge"];
+                                                dt.Rows[i + adjustIndex]["TtlWriteIns"] = ttlWriteIns;
+                                                loop--;
+                                                adjustIndex++;
+
+                                            } while (loop > 0);
+
+                                            i = (i + adjustIndex) - 1;
+                                        }
+                                        if (raceWithWriteIn > 0 && writeInCand <= 0)
+                                        {
+                                            writeInRace = true;
+                                        }
+                                        else
+                                        {
+                                            writeInRace = false;
+                                        }
+                                    }
+                                }
+
                                 break;
                             }
                         }
                         break;
                     }
                 }
-                //RetrieveRaceNbr(dt);
+
+                if (IsMultiVote)
+                {
+                    IEnumerable<DataRow> queryMultiVote = from m in dt.AsEnumerable()
+                                                          where m.Field<int>("MaxVotes") > 1
+                                                          select m;
+                    if (queryMultiVote.Any())
+                    {
+                        dt = queryMultiVote.CopyToDataTable();
+                    }                    
+                }
+
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "ERROR IN: DataLoader.UpdatePositionData");
-                throw;
-            }
-            return dt;
-        }
-
-        private DataTable RetrieveRaceNbr(DataTable dt)
-        {
-            int totalArrows = 0;
-            int racePosn = 0;
-            int raceNbr = 1;
-            int maxVotes = 0;
-
-            try
-            {
-                for (int i = 0; i < dt.Rows.Count; i++)
-                {
-                    totalArrows = Convert.ToInt32(dt.Rows[i]["TtlRaceOvals"]);
-                    racePosn = Convert.ToInt32(dt.Rows[i]["RacePosn"]);
-                    maxVotes = Convert.ToInt32(dt.Rows[i]["MaxVotes"]);
-
-                    if (totalArrows > racePosn)
-                    {
-                        for (int j = i; j < (totalArrows + i) - 1; j++)
-                        {
-                            dt.Rows[j]["RaceNbr"] = raceNbr;
-                        }
-                    }
-                    else
-                    {
-                        dt.Rows[i]["RaceNbr"] = raceNbr;
-                        raceNbr++;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "ERROR IN: DataLoader.RetrieveRaceNbr");
                 throw;
             }
             return dt;

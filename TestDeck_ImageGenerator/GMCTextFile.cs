@@ -6,6 +6,7 @@ using Microsoft.Win32;
 using System.Linq;
 using System.Windows;
 using System.Collections.Generic;
+using System.Collections;
 
 namespace TestDeck_ImageGenerator
 {
@@ -40,20 +41,35 @@ namespace TestDeck_ImageGenerator
         public void GenerateOutputTextFile(DataTable dt, DataTable ovaldt, int count)
         {
             DataTable drDt = new DataTable();
-            DeckinatorReport dr = new DeckinatorReport();
+            DeckinatorReport dr;
+            bool skipDeckinator = false;
 
-            // Assignment of Rotation property
+            if (IsMULTI)
+            {
+                DataAccess.Instance.IsMultiVote = IsMULTI;
+                dr = new DeckinatorReport("MultiVote");
+            }
+            else
+            {
+                dr = new DeckinatorReport();
+            }
+
+            // Assignment of GMC Rotation property
             if (IsLA == false)
             {
                 Rotation = 1;
             }
             OvalData = new DataTable();
-
             OvalData = ovaldt;
-            int sortKey = 1;
+
+            
             string columnToSearch = "BallotImageFront";
 
             string ovalFileName = dt.Rows[0]["BallotImage"].ToString();
+            int maxVote = Convert.ToInt32(dt.Compute("max(MaxVotes)", string.Empty));
+
+            if (IsMULTI && maxVote < 2)
+                skipDeckinator = true;
 
             foreach (DataColumn oval in OvalData.Columns)
             {
@@ -66,7 +82,7 @@ namespace TestDeck_ImageGenerator
                         if (row[columnToSearch].ToString() == ovalFileName)
                         {
                             rowIndex = OvalData.Rows.IndexOf(row);
-                            SetDataTableRowsForOutput(count, sortKey, ref rowIndex);
+                            SetDataTableRowsForOutput(count, ref rowIndex);
                             RotationGMCOutputDataTable(Rotation, TempDt);
                             break;
                         }
@@ -75,27 +91,58 @@ namespace TestDeck_ImageGenerator
                 }
             }
 
-            drDt = dr.QueryDeckReportDTByImageName(ovalFileName);
-            dr.SetDataAccessDeckinatorDT(Rotation, drDt);            
+            if (skipDeckinator == false)
+            {
+                drDt = dr.QueryDeckReportDTByImageName(ovalFileName);
+                dr.SetDataAccessDeckinatorDT(Rotation, drDt);
+            }
         }
 
-        private void SetDataTableRowsForOutput(int count, int sortKey, ref int rowIndex)
+        private int ComputePageBack(string backImage)
         {
-            string[] ballotImageBackVariations = new string[] { "NO BACK", "NO BACK.pdf", "NOBACK", "NOBACK.pdf", "NOBACK.PDF", "NO BACK.PDF" };
-            int pageBack = 0;
+            int totalVotes = 0;
+            DataTable backImageDT = new DataTable();
+            IEnumerable<DataRow> queryBackImages = from b in OvalData.AsEnumerable()
+                                                   where b.Field<string>("BallotImageFront") == backImage
+                                                   && b.Field<string>("Pge") != "1.00"
+                                                   select b;
+
+            if (queryBackImages.Any())
+            {
+                backImageDT = queryBackImages.CopyToDataTable();
+
+                int maxVotes = Convert.ToInt32(backImageDT.Compute("max(MaxVotes)", string.Empty));
+                totalVotes = Convert.ToInt32(backImageDT.Compute("max(OvalPosition)", string.Empty));
+
+                if (maxVotes < 2 && IsMULTI)
+                {
+                    totalVotes = 0;
+                }
+            }
+
+            return totalVotes;
+        }
+
+        private void SetDataTableRowsForOutput(int count, ref int rowIndex)
+        {
+            DataTable ovalDataDT = new DataTable();
+            int sortKey = 1;
+            string page = string.Empty;
 
             for (int i = 0; i < count; i++)
             {
                 TempDt.Rows.Add();
 
+                page = string.Format(OvalData.Rows[rowIndex]["Pge"].ToString().Substring(0, 1));
                 TempDt.Rows[i]["SortKey"] = sortKey;
                 TempDt.Rows[i]["Card"] = OvalData.Rows[rowIndex]["CardStyle"];
                 TempDt.Rows[i]["BallotStyle"] = OvalData.Rows[rowIndex]["BallotStyle"];
                 TempDt.Rows[i]["PrecinctID"] = OvalData.Rows[rowIndex]["PrecinctID"];
+                TempDt.Rows[i]["Page"] = page;
                 TempDt.Rows[i]["BallotImageFront"] = PdfFileName;
                 TempDt.Rows[i]["BallotImageBack"] = OvalData.Rows[rowIndex]["BallotImageBack"];
-                TempDt.Rows[i]["WatermarkName"] = OvalData.Rows[rowIndex]["WatermarkName"];
                 TempDt.Rows[i]["WatermarkColor"] = OvalData.Rows[rowIndex]["WatermarkColor"];
+                TempDt.Rows[i]["WatermarkName"] = OvalData.Rows[rowIndex]["WatermarkName"];                
                 TempDt.Rows[i]["HeaderLeft1"] = OvalData.Rows[rowIndex]["HeaderLeft1"];
                 TempDt.Rows[i]["HeaderLeft2"] = OvalData.Rows[rowIndex]["HeaderLeft2"];
                 TempDt.Rows[i]["HeaderLeft3"] = OvalData.Rows[rowIndex]["HeaderLeft3"];
@@ -103,32 +150,36 @@ namespace TestDeck_ImageGenerator
                 TempDt.Rows[i]["HeaderRight2"] = OvalData.Rows[rowIndex]["HeaderRight2"];
                 TempDt.Rows[i]["HeaderRight3"] = OvalData.Rows[rowIndex]["HeaderRight3"];
                 TempDt.Rows[i]["Party"] = OvalData.Rows[rowIndex]["Party"];
-                TempDt.Rows[i]["ILK"] = AddIlkToData();
+                TempDt.Rows[i]["ILK"] = AddIlkToData();                
 
-                foreach (string item in ballotImageBackVariations)
+                if (TempDt.Rows[i]["BallotImageBack"].ToString() == "NO BACK")
                 {
-                    if (TempDt.Rows[i]["BallotImageBack"].ToString() == item)
-                    {
-                        TempDt.Rows[i]["PageFront"] = sortKey;
-                        TempDt.Rows[i]["PageBack"] = 0;
-                        break;
-                    }
+                    TempDt.Rows[i]["PageFront"] = sortKey;
+                    TempDt.Rows[i]["PageBack"] = 0;
                 }
-                pageBack = Convert.ToInt32(TempDt.Rows[i]["PageBack"]);
-
-                if (pageBack != 0)
+                else
                 {
-                    TempDt.Rows[i]["BallotImageBack"] = PdfFileName;
+                    string backImage = TempDt.Rows[0]["BallotImageBack"].ToString();
+                    int backVotes = ComputePageBack(backImage) + 1;
 
                     if (sortKey == 1)
                     {
-                        TempDt.Rows[i]["PageFront"] = sortKey;
-                        TempDt.Rows[i]["PageBack"] = sortKey + 1;
+                        TempDt.Rows[i]["PageFront"] = 1;
+                        TempDt.Rows[i]["PageBack"] = 1;
                     }
                     else
                     {
-                        TempDt.Rows[i]["PageFront"] = sortKey + 1;
-                        TempDt.Rows[i]["PageBack"] = sortKey;
+                        TempDt.Rows[i]["PageFront"] = sortKey;
+
+                        if (sortKey <= backVotes)
+                        {
+                            TempDt.Rows[i]["PageBack"] = sortKey;
+                        }
+                        else
+                        {
+                            TempDt.Rows[i]["PageBack"] = backVotes;
+                        }
+                        
                     }
                 }
 
@@ -152,8 +203,9 @@ namespace TestDeck_ImageGenerator
                 if (loops == 1 || rotation < 2)
                 {
                     DataAccess.Instance.VotePositionTable.Rows.Add(item.ItemArray);
-                    DataAccess.Instance.VotePositionTable.Rows[row]["Sequence"] = sequenceNum.ToString();
-                    loops++; sequenceNum++; row++;
+                    //DataAccess.Instance.VotePositionTable.Rows[row]["Sequence"] = sequenceNum.ToString();
+                    loops++; //sequenceNum++;
+                    row++;
                 }
                 else
                 {
@@ -162,8 +214,8 @@ namespace TestDeck_ImageGenerator
                         for (int i = 0; i < loops; i++)
                         {
                             DataAccess.Instance.VotePositionTable.Rows.Add(item.ItemArray);
-                            DataAccess.Instance.VotePositionTable.Rows[row]["Sequence"] = sequenceNum.ToString();
-                            sequenceNum++;
+                            //DataAccess.Instance.VotePositionTable.Rows[row]["Sequence"] = sequenceNum.ToString();
+                            //sequenceNum++;
                             row++;
                         }
                         loops++; 
@@ -181,13 +233,13 @@ namespace TestDeck_ImageGenerator
             string testdeckIlk = string.Empty;
 
             if (IsLA)
-                testdeckIlk = "L&A";
+                testdeckIlk = "LA";
             else if (IsQC)
                 testdeckIlk = "QC";
             else if (IsWHSE)
-                testdeckIlk = "WHSE";
+                testdeckIlk = "WH";
             else if (IsMULTI)
-                testdeckIlk = "MULTI";
+                testdeckIlk = "MV";
 
             return testdeckIlk;
         }
@@ -203,6 +255,7 @@ namespace TestDeck_ImageGenerator
                 TempDt.Columns.Add("Card", typeof(int));
                 TempDt.Columns.Add("BallotStyle");
                 TempDt.Columns.Add("PrecinctID");
+                TempDt.Columns.Add("Page", typeof(string));
                 TempDt.Columns.Add("BallotImageFront");
                 TempDt.Columns.Add("PageFront", typeof(int));
                 TempDt.Columns.Add("BallotImageBack");
@@ -216,12 +269,12 @@ namespace TestDeck_ImageGenerator
                 TempDt.Columns.Add("HeaderRight2");
                 TempDt.Columns.Add("HeaderRight3");
                 TempDt.Columns.Add("Party");
-                TempDt.Columns.Add("ILK");
+                TempDt.Columns.Add("ILK");                
             }
         }
 
         private void SetTotalBallotCount()
-        {            
+        {
             DataTable imageOneMaxVotes = new DataTable();
             DataTable imageName = new DataTable();
             DataTable multiMaxVotes = new DataTable();
@@ -240,7 +293,8 @@ namespace TestDeck_ImageGenerator
             for (int j = 0; j < imageName.Rows.Count; j++)
             {
                 int counter = 0;
-                int maxVotes = Convert.ToInt32(imageName.Rows[j]["TotalVotes"]);
+                int totalVotes = Convert.ToInt32(imageName.Rows[j]["TotalVotes"]);
+                int maxVotes = Convert.ToInt32(imageName.Rows[j]["MaxVotes"]);
                 string ballotImage = imageName.Rows[j]["BallotImageFront"].ToString();
 
                 // Select all images that equal ballotImage
@@ -256,39 +310,74 @@ namespace TestDeck_ImageGenerator
                 {
                     if (ballotImage == imageOneMaxVotes.Rows[counter]["BallotImageFront"].ToString())
                     {
-                        if (maxVotes == 1)
+                        if (!IsMULTI)
                         {
-                            transferDT.Rows.Add(item.ItemArray);
-                            transferDT.Rows[transferDT.Rows.Count - 1]["TotalBallots"] = 1;
-                            counter++;
+                            if (totalVotes == 1||IsWHSE||IsQC)
+                            {
+                                if (IsQC)
+                                {
+                                    transferDT.Rows.Add(item.ItemArray);
+                                    transferDT.Rows[transferDT.Rows.Count - 1]["TotalBallots"] = 2;
+                                    counter++;
+                                }
+                                else
+                                {
+                                    transferDT.Rows.Add(item.ItemArray);
+                                    transferDT.Rows[transferDT.Rows.Count - 1]["TotalBallots"] = 1;
+                                    counter++;
+                                }
+                            }
+                            else
+                            {
+                                //Gets count of total ballots that will be printed
+                                IEnumerable<DataRow> maxVoteOverOne = from v in imageOneMaxVotes.AsEnumerable()
+                                                                      where v.Field<int>("RaceID") == raceID
+                                                                      select v;
+
+                                multiMaxVotes = maxVoteOverOne.CopyToDataTable();
+
+                                transferDT.Rows.Add(item.ItemArray);
+                                transferDT.Rows[transferDT.Rows.Count - 1]["TotalBallots"] = multiMaxVotes.Rows.Count;
+                                counter++;
+                            }
                         }
                         else
                         {
+                            int i = 0;
+                            int maxVotesCount = maxVotes;
+                            while (maxVotesCount > 2)
+                            {
+                                i++;
+                                maxVotesCount--;
+                            }
                             //Gets count of total ballots that will be printed
-                            IEnumerable<DataRow> maxVoteOverOne = from v in DataAccess.Instance.DeckinatorTable.AsEnumerable()
-                                                                  where v.Field<int>("TotalVotes") == maxVotes 
-                                                                  && v.Field<string>("BallotImageFront") == ballotImage
-                                                                  && v.Field<int>("RaceID") == raceID
+                            IEnumerable<DataRow> maxVoteOverOne = from v in imageOneMaxVotes.AsEnumerable()
+                                                                  where v.Field<int>("RaceID") == raceID
                                                                   select v;
 
                             multiMaxVotes = maxVoteOverOne.CopyToDataTable();
 
                             transferDT.Rows.Add(item.ItemArray);
-                            transferDT.Rows[transferDT.Rows.Count - 1]["TotalBallots"] = multiMaxVotes.Rows.Count;
+                            transferDT.Rows[transferDT.Rows.Count - 1]["TotalBallots"] = totalVotes - i;
                             counter++;
                         }
                     }                    
                 }
             }
             DataAccess.Instance.DeckinatorTable = transferDT;
-
             DataView view = DataAccess.Instance.DeckinatorTable.DefaultView;
             view.Sort = "Sequence ASC";
             DataAccess.Instance.DeckinatorTable = view.ToTable();
+
+            transferDT = null;
+            imageName = null;
+            imageOneMaxVotes = null;
+            multiMaxVotes = null;
         }
 
         public void SaveDeckReportTextFile(string path, string countyID)
         {
+            string newPath = path + @"\" + countyID + "-" + AddIlkToData();
             string fileName = path + @"\" + countyID + "-" + AddIlkToData() + "_DECKREPORT.txt";
             var result = new StringBuilder();
 
@@ -323,11 +412,14 @@ namespace TestDeck_ImageGenerator
         {
             try
             {
+                dt = UpdateImageNameAndPage(dt);
+                string ilk = AddIlkToData();                
                 SaveFileDialog dlg = new SaveFileDialog();
                 dlg.DefaultExt = ".txt";
                 dlg.Filter = "Text documents (.txt)|*.txt";
-                
-                string fileName = path + @"\" + countyId + "-" + AddIlkToData() + "_TESTDECK_GMC.txt";
+                string newPath = path + @"\" + countyId + "-" + ilk;
+
+                string fileName = path + @"\" + countyId + "-" + ilk + "_TESTDECK_GMC.txt";
                 decimal tempBox = dt.Rows.Count / FileBreak;
                 int boxSplit = Convert.ToInt32(Math.Ceiling(tempBox + 1));
                 string[] fileArray = new string[dt.Rows.Count + boxSplit + 1];
@@ -350,7 +442,7 @@ namespace TestDeck_ImageGenerator
 
                     if (rowNum % FileBreak == 0)
                     {
-                        row = $"BOX DIVIDER #{count}|BOX {count} of {boxSplit}||||BoxDividerFront.pdf|1|BoxDividerBack.pdf|2";
+                        row = $"BOX DIVIDER|BOX DIVIDER #{count}|BOX {count} of {boxSplit}||||BoxDividerFront.pdf|1|BoxDividerBack.pdf|2";
                         fileArray[i] = row;
                         i++;
                         count++;
@@ -367,7 +459,7 @@ namespace TestDeck_ImageGenerator
                     i++;
                     _count++;              
                 }
-                using (StreamWriter sw = new StreamWriter(fileName, true))
+                using (StreamWriter sw = new StreamWriter(fileName))
                 {
                     foreach (var item in fileArray)
                     {
@@ -382,51 +474,67 @@ namespace TestDeck_ImageGenerator
             }
         }
 
-        public void SaveGMCTextfile(string path, DataTable dt, string countyId)
+        private DataTable UpdateImageNameAndPage(DataTable textDt)
         {
-            try
+            //double pageNumber = 0;
+            string backImage = string.Empty;
+            int card = 0;
+            DataTable tempDt = new DataTable();
+            DataTable cardTable = new DataTable();
+
+            IEnumerable<DataRow> queryBackImage = from data in textDt.AsEnumerable()
+                                                  where data.Field<string>("Page") != "1"
+                                                  group data by data.Field<string>("PrecinctID") into grp
+                                                  select grp.First();            
+
+            if (queryBackImage.Any())
             {
-                SaveFileDialog dlg = new SaveFileDialog();
-                dlg.DefaultExt = ".txt";
-                dlg.Filter = "Text documents (.txt)|*.txt";
+                tempDt = queryBackImage.CopyToDataTable();
 
-                string fileName = path + @"\" + countyId + "-" + AddIlkToData() + "_TESTDECK_GMC.txt";
-                //string newFilename = AddSuffix(path, ".txt", true);
-
-                var header = new StringBuilder();
-                var result = new StringBuilder();
-
-                for (int j = 0; j < dt.Columns.Count; j++)
+                foreach (DataRow dr in tempDt.Rows)
                 {
-                    header.Append(dt.Columns[j].ColumnName);
-                    header.Append(j == dt.Columns.Count - 1 ? "" : "|");
-                }
+                    backImage = dr.Field<string>("BallotImageFront");
+                    card = dr.Field<int>("Card");
+                    //pct = Convert.ToInt32(dr.Field<string>("PrecinctID"));
 
-                foreach (DataRow dr in dt.Rows)
-                {
-                    for (int i = 0; i < dt.Columns.Count; i++)
+                    IEnumerable<DataRow> queryCards = from c in textDt.AsEnumerable()
+                                                      where c.Field<int>("Card") == card
+                                                      select c;
+                    cardTable = queryCards.CopyToDataTable();
+
+                    for (int i = 0; i < cardTable.Rows.Count; i++)
                     {
-                        result.Append(dr[i].ToString());
-                        result.Append(i == dt.Columns.Count - 1 ? "" : "|");
+                        DataRow[] row = textDt.Select(string.Format("[Card] = '{0}'", card));
+
+                        row[i]["BallotImageBack"] = backImage;
                     }
-                    _count++;
-                    result.AppendLine();
-                }
-                using (StreamWriter sw = new StreamWriter(fileName))
-                {
-                    sw.WriteLine(header.ToString());
-                    sw.WriteLine(result.ToString());
-                    sw.Close();
                 }
 
-                var lines = File.ReadAllLines(fileName);
-                File.WriteAllLines(fileName, lines.Take(lines.Length - 1).ToArray());
+                IEnumerable<DataRow> queryRecords = from recs in textDt.AsEnumerable()
+                                                    where recs.Field<string>("Page") == "1"
+                                                    select recs;
+
+                DataAccess.Instance.VotePositionTable = queryRecords.CopyToDataTable();
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show(ex.Message, "ERROR in Saving GMC TextFiles");
+                MessageBox.Show(
+                    "If you received this message, that means there are no backs to process for this Ilk" + 
+                    "\n\nHowever, if there ARE back images, be sure to move them with the corresponding front images.", 
+                    "There are *NO BACK* images for this Testdeck Ilk", MessageBoxButton.OK, MessageBoxImage.Information);
             }
+
+            int sequence = 1;
+
+            for (int i = 0; i < DataAccess.Instance.VotePositionTable.Rows.Count; i++)
+            {
+                DataAccess.Instance.VotePositionTable.Rows[i]["Sequence"] = sequence.ToString();
+                sequence++;
+            }
+
+            return DataAccess.Instance.VotePositionTable; 
         }
+
 
         #region IDisposable Support
         private bool disposedValue = false; // To detect redundant calls

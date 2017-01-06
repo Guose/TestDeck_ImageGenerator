@@ -59,7 +59,7 @@
             <RadioButton IsChecked="{Binding ProcessOpt, ConverterParameter={x:Static local:ProcessOptions.ByPct}, Converter={StaticResource EnumToBooleanConverter}}" x:Name="radByPct" Content="By Precinct" Grid.Column="1" HorizontalAlignment="Left" Margin="0,4,0,0" VerticalAlignment="Top" Height="15" Width="88"/>
             <RadioButton IsChecked="{Binding ProcessOpt, ConverterParameter={x:Static local:ProcessOptions.All}, Converter={StaticResource EnumToBooleanConverter}}" x:Name="radAll" Content="ALL" Grid.Column="2" HorizontalAlignment="Left" Margin="0,4,0,0" VerticalAlignment="Top" Height="15" Width="38"/>
         </Grid>
-        <CheckBox x:Name="chkIncludeWriteIns" Content="Include Write-Ins (LA Only)" HorizontalAlignment="Left" Margin="435,166,0,0" VerticalAlignment="Top" Width="167" Click="chkIncludeWriteIns_Click"/>
+        <CheckBox x:Name="chkIncludeWriteIns" Content="Include Write-Ins (LA Only)" HorizontalAlignment="Left" Margin="435,166,0,0" VerticalAlignment="Top" Width="167" IsChecked="False"/>
         <ComboBox x:Name="cboFileSplitSize" HorizontalAlignment="Left" Margin="448,195,0,0" VerticalAlignment="Top" Width="138" SelectedIndex="0" IsEditable="True" Text="Select Box Split Size"/>
         <Grid Margin="333,15,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Height="58">
             <Rectangle Fill="#FFB9D9F3" Height="55" Stroke="#FFA6ABAE" VerticalAlignment="Top" Width="306" HorizontalAlignment="Left" Margin="0,3,-11,0"/>
@@ -96,6 +96,6 @@
         </Grid>
 
         <CheckBox x:Name="chkReporting" Content="Include Deckinator Report File" HorizontalAlignment="Left" Margin="61,70,0,0" VerticalAlignment="Top" IsChecked="True"/>
-        <Frame x:Name="frmAddCounty" LostFocus="frmAddCounty_LostFocus" BorderBrush="Black" BorderThickness="1" RenderTransformOrigin="0.5,0.5" Margin="0,0,0,511" />
+        <Frame x:Name="frmAddCounty" LostFocus="frmAddCounty_LostFocus" BorderBrush="Black" BorderThickness="1" RenderTransformOrigin="0.5,0.5" />
     </Grid>
 </Window>

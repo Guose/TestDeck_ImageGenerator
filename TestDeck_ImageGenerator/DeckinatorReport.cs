@@ -9,10 +9,9 @@ namespace TestDeck_ImageGenerator
 {
     public class DeckinatorReport : IDisposable
     {
-        public DeckinatorReport(bool writeIns, int ballots) : this()
+        public DeckinatorReport(string ilk) : this()
         {
-            IncludeWriteIn = writeIns;
-            TotalBallotColumn = ballots;
+            TestdeckILK = ilk;            
         }
         public DeckinatorReport()
         {
@@ -20,23 +19,12 @@ namespace TestDeck_ImageGenerator
         }
 
         private DataTable _deckReport = new DataTable();
-        private bool _includeWriteIn;
-        private int _totalBallots;
 
+        public string TestdeckILK { get; set; }
         public DataTable DeckReport
         {
             get { return _deckReport; }
             set { _deckReport = value; }
-        }
-        public bool IncludeWriteIn
-        {
-            get { return _includeWriteIn; }
-            set { _includeWriteIn = value; }
-        }
-        public int TotalBallotColumn
-        {
-            get { return _totalBallots; }
-            set { _totalBallots = value; }
         }
 
         public DataTable QueryDeckReportDTByImageName(string imageName)
@@ -45,6 +33,7 @@ namespace TestDeck_ImageGenerator
 
             IEnumerable<DataRow> queryImageName = from d in DeckReport.AsEnumerable()
                                                   where d.Field<string>("BallotImageFront") == imageName
+                                                  || d.Field<string>("BallotImageBack") == imageName
                                                   select d;
 
             byImageNameDt = queryImageName.CopyToDataTable();
@@ -140,7 +129,6 @@ namespace TestDeck_ImageGenerator
             }
         }
 
-
         private DataTable QueryTotalVotesEqualToOne(DataTable dt)
         {
             DataTable queryDt = new DataTable();
@@ -173,26 +161,42 @@ namespace TestDeck_ImageGenerator
 
         private void PopulateDeckReportDT()
         {
-            for (int i = 0; i < DataAccess.Instance.OvalDataTable.Rows.Count; i++)
+            DataTable ovalDT = new DataTable();
+
+            if (DataAccess.Instance.IsMultiVote)
             {
-                string precinctId = DataAccess.Instance.OvalDataTable.Rows[i]["PrecinctID"].ToString();
+                ovalDT = DataAccess.Instance.MultiVoteTable;
+                DataView dv = ovalDT.DefaultView;
+                dv.Sort = "CardStyle ASC, OvalPosition ASC";
+                ovalDT = dv.ToTable();
+            }
+            else
+            {
+                ovalDT = DataAccess.Instance.OvalDataTable;
+            }
+
+            for (int i = 0; i < ovalDT.Rows.Count; i++)
+            {
+                string precinctId = ovalDT.Rows[i]["PrecinctID"].ToString();
 
                 DeckReport.Rows.Add();
-                DeckReport.Rows[i]["CardStyle"] = DataAccess.Instance.OvalDataTable.Rows[i]["CardStyle"];
+                DeckReport.Rows[i]["CardStyle"] = ovalDT.Rows[i]["CardStyle"];
                 DeckReport.Rows[i]["PrecinctID"] = precinctId.PadLeft(8, '0');
-                DeckReport.Rows[i]["Candidate"] = DataAccess.Instance.OvalDataTable.Rows[i]["Candidate"];
-                DeckReport.Rows[i]["BallotImageFront"] = DataAccess.Instance.OvalDataTable.Rows[i]["BallotImageFront"];
-                DeckReport.Rows[i]["BallotImageBack"] = DataAccess.Instance.OvalDataTable.Rows[i]["BallotImageBack"];
-                DeckReport.Rows[i]["Race"] = DataAccess.Instance.OvalDataTable.Rows[i]["Race"];
-                DeckReport.Rows[i]["Party"] = DataAccess.Instance.OvalDataTable.Rows[i]["Party"];
-                DeckReport.Rows[i]["RaceID"] = DataAccess.Instance.OvalDataTable.Rows[i]["RaceID"];
-                DeckReport.Rows[i]["ReportSequence"] = DataAccess.Instance.OvalDataTable.Rows[i]["ReportSequence"];
-                DeckReport.Rows[i]["OvalPosn"] = DataAccess.Instance.OvalDataTable.Rows[i]["OvalPosition"];
-                DeckReport.Rows[i]["TotalVotes"] = DataAccess.Instance.OvalDataTable.Rows[i]["TotalVotes"];
-                DeckReport.Rows[i]["WriteIn"] = DataAccess.Instance.OvalDataTable.Rows[i]["IsWriteIn"];
-
+                DeckReport.Rows[i]["Candidate"] = ovalDT.Rows[i]["Candidate"];
+                DeckReport.Rows[i]["BallotImageFront"] = ovalDT.Rows[i]["BallotImageFront"];
+                DeckReport.Rows[i]["BallotImageBack"] = ovalDT.Rows[i]["BallotImageBack"];
+                DeckReport.Rows[i]["Race"] = ovalDT.Rows[i]["Race"];
+                DeckReport.Rows[i]["Party"] = ovalDT.Rows[i]["Party"];
+                DeckReport.Rows[i]["RaceID"] = ovalDT.Rows[i]["RaceID"];
+                DeckReport.Rows[i]["ReportSequence"] = ovalDT.Rows[i]["ReportSequence"];
+                DeckReport.Rows[i]["OvalPosn"] = ovalDT.Rows[i]["OvalPosition"];
+                DeckReport.Rows[i]["TotalVotes"] = ovalDT.Rows[i]["TotalVotes"];
+                DeckReport.Rows[i]["WriteIn"] = ovalDT.Rows[i]["IsWriteIn"];
+                DeckReport.Rows[i]["MaxVotes"] = ovalDT.Rows[i]["MaxVotes"];
+                DeckReport.Rows[i]["Page"] = ovalDT.Rows[i]["Pge"];
             }
         }
+
         private void SetDeckReportDataTable()
         {
             _deckReport.Columns.Add("CardStyle", typeof(int));
@@ -207,7 +211,9 @@ namespace TestDeck_ImageGenerator
             _deckReport.Columns.Add("OvalPosn", typeof(int));
             _deckReport.Columns.Add("TotalVotes", typeof(int));
             _deckReport.Columns.Add("WriteIn", typeof(int));
+            _deckReport.Columns.Add("MaxVotes", typeof(int));
             _deckReport.Columns.Add("Sequence", typeof(int));
+            _deckReport.Columns.Add("Page");
             _deckReport.Columns.Add("TotalBallots", typeof(int));
 
             PopulateDeckReportDT();
@@ -215,7 +221,7 @@ namespace TestDeck_ImageGenerator
             if (DataAccess.Instance.DeckinatorTable.Rows.Count < 1)
             {
                 DataAccess.Instance.DeckinatorTable = DeckReport.Clone();
-            }            
+            }
         }
 
         #region IDisposable Support

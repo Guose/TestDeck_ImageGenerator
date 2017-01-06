@@ -34,45 +34,38 @@ namespace TestDeck_ImageGenerator
         public bool IsLA { get; set; }
         public bool IsWHSE { get; set; }
         public bool IsQC { get; set; }
-        public bool IsMULTI { get; set; }
-        public int MaxVotes { get; set; }
+        public bool IsMULTI { get; set; }     
 
-        public List<string> RetrievePdfFileNames()
-        {
-            string[] files = Directory.GetFiles(PdfPath, "*.pdf");
-            List<string> fileList = new List<string>();
-
-            foreach (string file in files)
-            {
-                fileList.Add(file);
-            }
-            return fileList;
-        }
-
-        public void LoadPdfDocument(DataTable dt, DataTable ovaldt, int rotation, string countyID)
+        public void LoadPdfDocument(DataTable posnDt, DataTable ovaldt, int rotation, string countyID)
         {
             string ilk = string.Empty;
             string date = DateTime.Now.ToString("yyyyMMdd");
+            DataTable tempLATable = new DataTable();
 
             try
             {
                 PdfDocument pdfDoc = PdfSharp.Pdf.IO.PdfReader.Open
                     (PdfPath + PdfFileName, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
                 PdfDocument pdfNewDoc = new PdfDocument();
-                MaxNumOfCandidate = Convert.ToInt32(dt.Compute("max(TtlRaceOvals)", string.Empty));
+                MaxNumOfCandidate = Convert.ToInt32(posnDt.Compute("max(TtlRaceOvals)", string.Empty));
+                int totalWriteIns = Convert.ToInt32(posnDt.Compute("max(TtlWriteIns)", string.Empty));
+                int page = Convert.ToInt16(posnDt.Rows[0]["Page"]);
 
                 if (IncludeWriteIns == false && IsLA && MaxNumOfCandidate > 1)
                 {
-                    var decrementMaxCand = from m in dt.AsEnumerable()
-                                           where m.Field<int>("IsWriteIn") > 0
+                    var decrementMaxCand = from m in posnDt.AsEnumerable()
+                                           where m.Field<int>("IsWriteIn") < 1
                                            select m;
 
-                    if (decrementMaxCand.Any())
-                    {
-                        MaxNumOfCandidate = MaxNumOfCandidate - 1;
-                    }
+                    tempLATable = decrementMaxCand.CopyToDataTable();
+
+                    MaxNumOfCandidate = Convert.ToInt32(tempLATable.Compute("max(RacePosn)", string.Empty));
                 }
-                    
+
+                if (page > 1)
+                {
+                    MaxNumOfCandidate = MaxNumOfCandidate + 1;
+                }
 
                 if (IsQC || IsWHSE)
                 {
@@ -83,40 +76,36 @@ namespace TestDeck_ImageGenerator
                 }
 
                 for (int pg = 0; pg < MaxNumOfCandidate; pg++)
-                {
-                    MaxVotes = Convert.ToInt32(dt.Compute("max(MaxVotes)", string.Empty));
+                {                    
                     Count++;
                     pdfNewDoc.AddPage(pdfDoc.Pages[0]);
                     XGraphics gfx = XGraphics.FromPdfPage(pdfNewDoc.Pages[pg]);
                     if (IsLA)
                     {
-                        MarkPdf_LandADeck(dt, gfx);
+                        MarkPdf_LandADeck(posnDt, gfx);
                         _gmc.IsLA = IsLA;
-                        ilk = "L&A";
+                        ilk = "LA";
                     }
                     else if (IsQC)
                     {
                         if (pg == 1)
                         {
-                            MarkPdf_QCDeck(dt, gfx);
+                            MarkPdf_QCDeck(posnDt, gfx);
                         }
                         _gmc.IsQC = IsQC;
                         ilk = "QC";
                     }
                     else if (IsWHSE)
                     {
-                        MarkPdf_WHSEDeck(dt, gfx);
+                        MarkPdf_WHSEDeck(posnDt, gfx);
                         _gmc.IsWHSE = IsWHSE;
                         ilk = "WHSE";
                     }
                     else if (IsMULTI)
                     {
-                        if (MaxVotes > 1)
-                        {
-                            MarkPdf_MULTIDeck(dt, gfx);
-                            _gmc.IsMULTI = IsMULTI;
-                            ilk = "MULTIVOTE";
-                        }
+                        MarkPdf_MULTIDeck(posnDt, ovaldt, gfx);
+                        _gmc.IsMULTI = IsMULTI;
+                        ilk = "MULTIVOTE";
                     }
                 }
                 if (ilk != "")
@@ -129,7 +118,7 @@ namespace TestDeck_ImageGenerator
 
                     _gmc.PdfFileName = pdfName;
                     _gmc.Rotation = rotation;
-                    _gmc.GenerateOutputTextFile(dt, ovaldt, Count);
+                    _gmc.GenerateOutputTextFile(posnDt, ovaldt, Count);
 
                     pdfNewDoc.Save(savedImages + @"\" + pdfName);
                 }
@@ -140,53 +129,107 @@ namespace TestDeck_ImageGenerator
             }            
         }
 
-        private void MarkPdf_MULTIDeck(DataTable dt, XGraphics gfx)
+        private int myIterator = 0;
+        private int _TotalVotes = 0;
+
+        private void MarkPdf_MULTIDeck(DataTable posnDT, DataTable ovalDT, XGraphics gfx)
         {
-            DataTable _maxVotes = new DataTable();
-            int myiterator = 0;
-            bool process = true;
-            try
+            if (Count >= 3)
             {
-                IEnumerable<DataRow> multiVotes = from m in dt.AsEnumerable()
-                                                  where m.Field<int>("MaxVotes") > 1
-                                                  select m;
-                _maxVotes = multiVotes.CopyToDataTable();
+                myIterator++;
+            }
+            DataTable _maxVotesDT = new DataTable();
+            DataTable raceIdDT = new DataTable();
+            DataTable queryRaceId = new DataTable();
 
-                int totalVotes = Convert.ToInt32(_maxVotes.Rows[0]["TtlRaceOvals"]);
-                int maxVotes = Convert.ToInt32(_maxVotes.Rows[0]["MaxVotes"]);
+            IEnumerable<DataRow> raceCount = from rc in posnDT.AsEnumerable()
+                                             group rc by rc.Field<int>("RaceID") into grp
+                                             select grp.First();
 
-                if (MaxVotes > 2 && Count == totalVotes)
+            raceIdDT = raceCount.CopyToDataTable();
+
+            DataView dv = raceIdDT.DefaultView;
+            dv.Sort = "TtlRaceOvals ASC";
+            raceIdDT = dv.ToTable();            
+
+            int totalVotes = 0;
+            int maxVotes = 0;
+            int ovalPosn = 0;
+            int raceId = 0;
+            int counter = 0;
+            
+
+            for (int j = 0; j < raceIdDT.Rows.Count; j++)
+            {
+                int i = 0;
+                bool process = true;
+                raceId = Convert.ToInt32(raceIdDT.Rows[j]["RaceID"]);
+
+                // totalVotes is the highest number of candidates of the multivote races
+                totalVotes = Convert.ToInt32(raceIdDT.Rows[j]["TtlRaceOvals"]);
+                // maxVotes is the maximum votes for this ballot
+                maxVotes = Convert.ToInt32(raceIdDT.Rows[j]["MaxVotes"]);
+
+                IEnumerable<DataRow> raceIdQuery = from race in posnDT.AsEnumerable()
+                                                   where race.Field<int>("RaceID") == raceId
+                                                   select race;
+
+                queryRaceId = raceIdQuery.CopyToDataTable();
+
+                _TotalVotes = Convert.ToInt32(queryRaceId.Compute("max(TtlRaceOvals)", string.Empty));
+
+                if (Count == 1)
                 {
-                    process = false;
+                    counter = maxVotes + 1;
                 }
+                if (Count == 2)
+                {
+                    counter = maxVotes;
+                }
+                if (Count >= 3)
+                {
+                    i = myIterator;
+                    counter = i + maxVotes;
+                }
+
+                if (counter > _TotalVotes)
+                {
+                    process = false;                    
+                }
+
+                if (maxVotes > 2 && counter == _TotalVotes)
+                {
+                    MaxNumOfCandidate = MaxNumOfCandidate - (maxVotes - 2);
+                }    
 
                 if (process)
                 {
-                    if (Count == 1)
-                        MaxVotes = MaxVotes + 1;
-
-                    if (Count >= 3)
+                    while (i < counter)
                     {
-                        myiterator = RowIndex - 1;
-                        MaxVotes = myiterator + MaxVotes;
-                    }
-                    for (int i = myiterator; i < MaxVotes; i++)
-                    {
-                        SetCoordinatesForTestDeck(i, _maxVotes, gfx);
+                        ovalPosn = Convert.ToInt32(queryRaceId.Rows[i]["RacePosn"]);
+                        string imageName = posnDT.Rows[i]["BallotImage"].ToString();
 
-                        if (i == totalVotes - 1 && maxVotes > 2)
+                        IEnumerable<DataRow> queryCandidate = from c in DataAccess.Instance.OvalDataTable.AsEnumerable()
+                                                              where c.Field<string>("RaceID") == raceId.ToString()
+                                                              && c.Field<string>("OvalPosition") == ovalPosn.ToString()
+                                                              && c.Field<string>("BallotImageFront") == imageName
+                                                              select c;
+
+                        foreach (var item in queryCandidate)
                         {
-                            MaxNumOfCandidate = MaxNumOfCandidate - 1;
-                            break;
+                            DataAccess.Instance.MultiVoteTable.Rows.Add(item.ItemArray);
                         }
+
+                        SetCoordinatesForTestDeck(i, queryRaceId, gfx);
+                        i++;
                     }
+
                     RowIndex++;
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "MULTI DECK ERROR");
-            }
+
+                    //if (counter == totalVotes)
+                    //    MaxNumOfCandidate = MaxNumOfCandidate - 1;
+                }                
+            }       
         }
 
         private void SetCoordinatesForTestDeck(int z, DataTable data, XGraphics gfx)
@@ -202,56 +245,36 @@ namespace TestDeck_ImageGenerator
         }
 
 
-        private void MarkPdf_WHSEDeck(DataTable dt, XGraphics gfx)
+        private void MarkPdf_WHSEDeck(DataTable posnDT, XGraphics gfx)
         {
             int racePosn = 0;
-            int totalInRace = 0;
-            bool writeIn = false;
-            DataTable queryDT = new DataTable();
+            int maxRaceCand = 0;
 
             try
             {
-                for (int i = 0; i < dt.Rows.Count; i++)
+                IEnumerable<DataRow> queryRaces = from race in posnDT.AsEnumerable()
+                                                  group race by race.Field<int>("RaceID") into grp
+                                                  select grp.First();
+
+                DataTable races = queryRaces.CopyToDataTable();
+
+                foreach (DataRow dr in races.Rows)
                 {
-                    racePosn = Convert.ToInt32(dt.Rows[i]["RacePosn"]);
-                    totalInRace = Convert.ToInt32(dt.Rows[i]["TtlRaceOvals"]);
-                    IsWriteIn = Convert.ToInt32(dt.Rows[i]["IsWriteIn"]);
+                    IEnumerable<DataRow> equalRaces = from r in posnDT.AsEnumerable()
+                                                      where r.Field<int>("RaceID") == Convert.ToInt32(dr["RaceID"])
+                                                      && r.Field<int>("IsWriteIn") == 0
+                                                      select r;
 
-                    if (racePosn == totalInRace)
+                    DataTable racePosnDT = equalRaces.CopyToDataTable();
+
+                    for (int i = 0; i < racePosnDT.Rows.Count; i++)
                     {
-                        if (IsWriteIn == 1)
-                            writeIn = true;
+                        racePosn = Convert.ToInt32(racePosnDT.Rows[i]["RacePosn"]);
+                        maxRaceCand = Convert.ToInt32(racePosnDT.Compute("max(RacePosn)", string.Empty));
 
-                        if (writeIn == false)
+                        if (racePosn == maxRaceCand)
                         {
-                            SetCoordinatesForTestDeck(i, dt, gfx);
-                        }
-                        else
-                        {
-                            if (writeIn && IncludeWriteIns)
-                            {
-                                SetCoordinatesForTestDeck(i, dt, gfx);
-                            }
-                            else
-                            {
-                                int raceNbr = Convert.ToInt32(dt.Rows[i]["RaceNbr"]);
-
-                                IEnumerable<DataRow> queryWriteIn = from q in dt.AsEnumerable()
-                                                                    where q.Field<int>("RaceNbr") == raceNbr
-                                                                    && q.Field<int>("IsWriteIn") < 1
-                                                                    select q;
-
-                                queryDT = queryWriteIn.CopyToDataTable();
-
-                                for (int j = 0; j < queryDT.Rows.Count; j++)
-                                {
-                                    int newRacePos = Convert.ToInt32(queryDT.Rows[j]["RacePosn"]);
-                                    if (newRacePos == racePosn - 1)
-                                    {
-                                        SetCoordinatesForTestDeck(j, queryDT, gfx);
-                                    }
-                                }                                
-                            }
+                            SetCoordinatesForTestDeck(i, racePosnDT, gfx);
                         }
                     }
                 }
@@ -262,13 +285,13 @@ namespace TestDeck_ImageGenerator
             }
         }
 
-        private void MarkPdf_QCDeck(DataTable dt, XGraphics gfx)
+        private void MarkPdf_QCDeck(DataTable posnDT, XGraphics gfx)
         {
             try
             {
-                for (int i = 0; i < dt.Rows.Count; i++)
+                for (int i = 0; i < posnDT.Rows.Count; i++)
                 {
-                    SetCoordinatesForTestDeck(i, dt, gfx);
+                    SetCoordinatesForTestDeck(i, posnDT, gfx);
                 }
             }
             catch (Exception ex)
@@ -277,17 +300,17 @@ namespace TestDeck_ImageGenerator
             }
         }
 
-        private void MarkPdf_LandADeck(DataTable dt, XGraphics gfx)
+        private void MarkPdf_LandADeck(DataTable posnDT, XGraphics gfx)
         {
-            int racePosn = 0;
-            bool isWriteIn = false;
+            int racePosn = 0;            
 
             try
             {
-                for (int i = RowIndex; i < dt.Rows.Count; i++)
+                for (int i = RowIndex; i < posnDT.Rows.Count; i++)
                 {
-                    racePosn = Convert.ToInt32(dt.Rows[i]["RacePosn"]);
-                    IsWriteIn = Convert.ToInt32(dt.Rows[i]["IsWriteIn"]);
+                    racePosn = Convert.ToInt32(posnDT.Rows[i]["RacePosn"]);
+                    IsWriteIn = Convert.ToInt32(posnDT.Rows[i]["IsWriteIn"]);
+                    bool isWriteIn = false;
 
                     if (racePosn == Count)
                     {
@@ -296,13 +319,13 @@ namespace TestDeck_ImageGenerator
 
                         if (isWriteIn == false)
                         {
-                            SetCoordinatesForTestDeck(i, dt, gfx);
+                            SetCoordinatesForTestDeck(i, posnDT, gfx);
                         }
                         else
                         {
                             if (isWriteIn && IncludeWriteIns)
                             {
-                                SetCoordinatesForTestDeck(i, dt, gfx);
+                                SetCoordinatesForTestDeck(i, posnDT, gfx);
                             }
                         }
                         RowIndex++;

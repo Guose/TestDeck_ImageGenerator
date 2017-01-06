@@ -13,6 +13,7 @@ namespace XYCoordinates
     public sealed class ArrowCoordinates
     {
         private DataTable _queryTable = new DataTable();
+
         public ArrowCoordinates(DataTable dt)
         {
             OvalData = dt;
