@@ -73,6 +73,9 @@
     </edmx:Options>
     <!-- Diagram content (shape and connector positions) -->
     <edmx:Diagrams>
+      <Diagram DiagramId="0153ba099be845d9805600ea2d5f3789" Name="Diagram1">
+        <EntityTypeShape EntityType="CustomerModel.Customer" Width="1.5" PointX="4.125" PointY="2.625" IsExpanded="true" />
+      </Diagram>
     </edmx:Diagrams>
   </edmx:Designer>
 </edmx:Edmx>

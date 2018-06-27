@@ -10,7 +10,7 @@ namespace TestDeck_ImageGenerator
 {
     public class FileDelimeter
     {
-        public static DataTable DataFromTextFile(string location, char delimeter = '|')
+        public static DataTable DataFromTextFile(string location, char delimeter)
         {
             DataTable result;
             string[] LineArray = File.ReadAllLines(location);

@@ -72,7 +72,7 @@ namespace CountyId.DAL
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "IVS Data Access Class ERROR");
+                throw new Exception("IVS Data Access Error \n\n" + ex.Message);
             }
             return Customers;
         }

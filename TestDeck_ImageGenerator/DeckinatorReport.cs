@@ -174,27 +174,29 @@ namespace TestDeck_ImageGenerator
             {
                 ovalDT = DataAccess.Instance.OvalDataTable;
             }
-
-            for (int i = 0; i < ovalDT.Rows.Count; i++)
+            if (ovalDT.Rows.Count > 0)
             {
-                string precinctId = ovalDT.Rows[i]["PrecinctID"].ToString();
+                for (int i = 0; i < ovalDT.Rows.Count; i++)
+                {
+                    string precinctId = ovalDT.Rows[i]["PrecinctID"].ToString();
 
-                DeckReport.Rows.Add();
-                DeckReport.Rows[i]["CardStyle"] = ovalDT.Rows[i]["CardStyle"];
-                DeckReport.Rows[i]["PrecinctID"] = precinctId.PadLeft(8, '0');
-                DeckReport.Rows[i]["Candidate"] = ovalDT.Rows[i]["Candidate"];
-                DeckReport.Rows[i]["BallotImageFront"] = ovalDT.Rows[i]["BallotImageFront"];
-                DeckReport.Rows[i]["BallotImageBack"] = ovalDT.Rows[i]["BallotImageBack"];
-                DeckReport.Rows[i]["Race"] = ovalDT.Rows[i]["Race"];
-                DeckReport.Rows[i]["Party"] = ovalDT.Rows[i]["Party"];
-                DeckReport.Rows[i]["RaceID"] = ovalDT.Rows[i]["RaceID"];
-                DeckReport.Rows[i]["ReportSequence"] = ovalDT.Rows[i]["ReportSequence"];
-                DeckReport.Rows[i]["OvalPosn"] = ovalDT.Rows[i]["OvalPosition"];
-                DeckReport.Rows[i]["TotalVotes"] = ovalDT.Rows[i]["TotalVotes"];
-                DeckReport.Rows[i]["WriteIn"] = ovalDT.Rows[i]["IsWriteIn"];
-                DeckReport.Rows[i]["MaxVotes"] = ovalDT.Rows[i]["MaxVotes"];
-                DeckReport.Rows[i]["Page"] = ovalDT.Rows[i]["Pge"];
-            }
+                    DeckReport.Rows.Add();
+                    DeckReport.Rows[i]["CardStyle"] = ovalDT.Rows[i]["CardStyle"];
+                    DeckReport.Rows[i]["PrecinctID"] = precinctId.PadLeft(8, '0');
+                    DeckReport.Rows[i]["Candidate"] = ovalDT.Rows[i]["Candidate"];
+                    DeckReport.Rows[i]["BallotImageFront"] = ovalDT.Rows[i]["BallotImageFront"];
+                    DeckReport.Rows[i]["BallotImageBack"] = ovalDT.Rows[i]["BallotImageBack"];
+                    DeckReport.Rows[i]["Race"] = ovalDT.Rows[i]["Race"];
+                    DeckReport.Rows[i]["Party"] = ovalDT.Rows[i]["Party"];
+                    DeckReport.Rows[i]["RaceID"] = ovalDT.Rows[i]["RaceID"];
+                    DeckReport.Rows[i]["ReportSequence"] = ovalDT.Rows[i]["ReportSequence"];
+                    DeckReport.Rows[i]["OvalPosn"] = ovalDT.Rows[i]["OvalPosition"];
+                    DeckReport.Rows[i]["TotalVotes"] = ovalDT.Rows[i]["TotalVotes"];
+                    DeckReport.Rows[i]["WriteIn"] = ovalDT.Rows[i]["IsWriteIn"];
+                    DeckReport.Rows[i]["MaxVotes"] = ovalDT.Rows[i]["MaxVotes"];
+                    DeckReport.Rows[i]["Page"] = ovalDT.Rows[i]["Pge"];
+                }
+            }            
         }
 
         private void SetDeckReportDataTable()

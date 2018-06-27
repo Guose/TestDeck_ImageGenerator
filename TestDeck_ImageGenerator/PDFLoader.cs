@@ -47,6 +47,7 @@ namespace TestDeck_ImageGenerator
                 PdfDocument pdfDoc = PdfSharp.Pdf.IO.PdfReader.Open
                     (PdfPath + PdfFileName, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
                 PdfDocument pdfNewDoc = new PdfDocument();
+
                 MaxNumOfCandidate = Convert.ToInt32(posnDt.Compute("max(TtlRaceOvals)", string.Empty));
                 int totalWriteIns = Convert.ToInt32(posnDt.Compute("max(TtlWriteIns)", string.Empty));
                 int page = Convert.ToInt16(posnDt.Rows[0]["Page"]);
@@ -156,8 +157,7 @@ namespace TestDeck_ImageGenerator
             int maxVotes = 0;
             int ovalPosn = 0;
             int raceId = 0;
-            int counter = 0;
-            
+            int counter = 0;            
 
             for (int j = 0; j < raceIdDT.Rows.Count; j++)
             {
@@ -225,9 +225,6 @@ namespace TestDeck_ImageGenerator
                     }
 
                     RowIndex++;
-
-                    //if (counter == totalVotes)
-                    //    MaxNumOfCandidate = MaxNumOfCandidate - 1;
                 }                
             }       
         }
