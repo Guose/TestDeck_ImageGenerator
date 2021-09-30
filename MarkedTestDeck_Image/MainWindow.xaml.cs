@@ -75,10 +75,12 @@ namespace MarkedTestDeck_Image
         {
             TestOptions options = new TestOptions();
 
-            LabelEventArgs e = new LabelEventArgs();
-            e.LabelText = label;
-            e.Message = message;
-            e.Caption = caption;
+            LabelEventArgs e = new LabelEventArgs
+            {
+                LabelText = label,
+                Message = message,
+                Caption = caption
+            };
 
             OnPopulateLabel(this, e);
         }
@@ -272,6 +274,38 @@ namespace MarkedTestDeck_Image
             }
         }
 
+        #region Background Thread
+
+        public delegate void delUpdateUITextbox(string fileName, string imageCount);
+        public delegate void delUpdateCardCount(string card);
+        public delegate void delUpdateVoteCount(string vote);
+        public delegate void delUpdateBallotCount(string ballots);
+        private Thread workerThread;
+
+        private void UpdateBallotCountTextbox(string ballots)
+        {
+            Dispatcher.BeginInvoke((Action)(() => txtBallotCount.Text = ballots)
+                , System.Windows.Threading.DispatcherPriority.Input);
+        }
+        private void UpdateVoteCountTextbox(string vote)
+        {
+            Dispatcher.BeginInvoke((Action)(() => txtVoteCount.Text = vote)
+                , System.Windows.Threading.DispatcherPriority.Input);
+        }
+        private void UpdateCardCountTextbox(string card)
+        {
+            Dispatcher.BeginInvoke((Action)(() => txtCardCount.Text = card)
+                , System.Windows.Threading.DispatcherPriority.Input);
+        }
+        private void UpdateUITextbox(string name, string image)
+        {
+            Dispatcher.BeginInvoke((Action)(() => txtImageFileName.Text = name)
+                , System.Windows.Threading.DispatcherPriority.Input);
+            Dispatcher.BeginInvoke((Action)(() => txtImageCount.Text = image)
+                , System.Windows.Threading.DispatcherPriority.Input);
+        }
+        #endregion Background Thread
+
         private void DoWorkOnImages()
         {
             delUpdateBallotCount delBallot = new delUpdateBallotCount(UpdateBallotCountTextbox);            
@@ -347,7 +381,6 @@ namespace MarkedTestDeck_Image
                 , System.Windows.Threading.DispatcherPriority.Input);
             Dispatcher.BeginInvoke((Action)(() => MessageBox.Show(e.Message, e.Caption))
                 , System.Windows.Threading.DispatcherPriority.Input);
-            
         }
 
         private void SaveGMCTextFile(string savedPath)
@@ -457,40 +490,6 @@ namespace MarkedTestDeck_Image
         }
 
         #endregion Window Buttons
-
-
-        #region Background Thread
-        
-        public delegate void delUpdateUITextbox(string fileName, string imageCount);
-        public delegate void delUpdateCardCount(string card);
-        public delegate void delUpdateVoteCount(string vote);
-        public delegate void delUpdateBallotCount(string ballots);
-        private Thread workerThread;
-
-        private void UpdateBallotCountTextbox(string ballots)
-        {
-            Dispatcher.BeginInvoke((Action)(() => txtBallotCount.Text = ballots)
-                , System.Windows.Threading.DispatcherPriority.Input);
-        }
-        private void UpdateVoteCountTextbox(string vote)
-        {
-            Dispatcher.BeginInvoke((Action)(() => txtVoteCount.Text = vote)
-                , System.Windows.Threading.DispatcherPriority.Input);
-        }
-        private void UpdateCardCountTextbox(string card)
-        {
-            Dispatcher.BeginInvoke((Action)(() => txtCardCount.Text = card)
-                , System.Windows.Threading.DispatcherPriority.Input);            
-        }
-        private void UpdateUITextbox(string name, string image)
-        {
-            Dispatcher.BeginInvoke((Action)(() => txtImageFileName.Text = name)
-                , System.Windows.Threading.DispatcherPriority.Input);
-            Dispatcher.BeginInvoke((Action)(() => txtImageCount.Text = image)
-                , System.Windows.Threading.DispatcherPriority.Input);
-        }
-        #endregion Background Thread
-
 
         #region Window Attributes
         private void Window_Loaded(object sender, RoutedEventArgs e)

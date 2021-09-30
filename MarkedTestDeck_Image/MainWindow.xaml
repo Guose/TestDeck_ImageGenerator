@@ -95,7 +95,7 @@
             <Label x:Name="lblVoteCount" Content="Total Votes Marked:" HorizontalAlignment="Left" VerticalAlignment="Top" Width="113" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="34,47,0,10"/>
         </Grid>
 
-        <CheckBox x:Name="chkReporting" Content="Include Deckinator Report File" HorizontalAlignment="Left" Margin="61,70,0,0" VerticalAlignment="Top" IsChecked="True"/>
-        <Frame x:Name="frmAddCounty" LostFocus="frmAddCounty_LostFocus" BorderBrush="Black" BorderThickness="1" RenderTransformOrigin="0.5,0.5" />
+        <CheckBox x:Name="chkReporting" Content="Include Deckinator Report File" HorizontalAlignment="Left" Margin="61,86,0,0" VerticalAlignment="Top" IsChecked="True"/>
+        <Frame x:Name="frmAddCounty" LostFocus="frmAddCounty_LostFocus" BorderBrush="Black" BorderThickness="1" RenderTransformOrigin="0.5,0.5" Margin="0,78,0,0" />
     </Grid>
 </Window>

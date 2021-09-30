@@ -30,8 +30,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="BitMiracle.Docotic.Pdf, Version=4.9.7780.0, Culture=neutral, PublicKeyToken=221650e173990c07, processorArchitecture=MSIL">
-      <HintPath>..\packages\BitMiracle.Docotic.Pdf.4.9.7780-dev\lib\net40\BitMiracle.Docotic.Pdf.dll</HintPath>
+    <Reference Include="BitMiracle.Docotic.Pdf, Version=5.7.9369.0, Culture=neutral, PublicKeyToken=221650e173990c07, processorArchitecture=MSIL">
+      <HintPath>..\packages\BitMiracle.Docotic.Pdf.5.7.9369-dev\lib\net40\BitMiracle.Docotic.Pdf.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="PresentationCore" />
