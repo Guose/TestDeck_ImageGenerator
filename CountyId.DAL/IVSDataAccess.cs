@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Customer;
 using System.Windows;
 
@@ -14,7 +13,7 @@ namespace CountyId.DAL
         public IVSDataAccess(string countyName, string countyId, string state) : this()
         {
             CountyName = countyName;
-            CountyId = CountyId;
+            CountyId = countyId;
             State = state;
         }
 
@@ -72,9 +71,10 @@ namespace CountyId.DAL
             }
             catch (Exception ex)
             {
-                throw new Exception("IVS Data Access Error \n\n" + ex.Message);
+                MessageBox.Show($"Error with connecting to the database \n\n{ex.Message} \n\n Please contact system administrator",
+                        "IVS Data Access Class ERROR", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            return Customers;
+            return Customers ?? null;
         }
 
         public string PopulateCountyId(string state, string name)

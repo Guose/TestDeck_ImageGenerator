@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Data;
 using System.IO;
@@ -20,7 +19,7 @@ namespace XYCoordinates
 
             if (ArrowDumpDt == null)
             {
-                SetArrowDumpDt();
+                _ = SetArrowDumpDtAsync().ConfigureAwait(false);
             }
         }
 
@@ -31,18 +30,22 @@ namespace XYCoordinates
         public List<string> FileNames { get; set; }
         public DataTable ArrowDumpDt { get; set; }
 
-        private void SetArrowDumpDt()
+        private async Task SetArrowDumpDtAsync()
         {
             ArrowDumpDt = new DataTable();
 
-            ArrowDumpDt.Columns.Add("SortKey", typeof(int));
-            ArrowDumpDt.Columns.Add("BallotImage", typeof(string));
-            ArrowDumpDt.Columns.Add("XCoord", typeof(int));
-            ArrowDumpDt.Columns.Add("YCoord", typeof(int));
+            await Task.Run(() =>
+            {
+                ArrowDumpDt.Columns.Add("SortKey", typeof(int));
+                ArrowDumpDt.Columns.Add("BallotImage", typeof(string));
+                ArrowDumpDt.Columns.Add("XCoord", typeof(int));
+                ArrowDumpDt.Columns.Add("YCoord", typeof(int));
+            });
+            
         }
 
 
-        public DataTable GetXYCoordinates(string fileName)
+        public async Task<DataTable> GetXYCoordinates(string fileName)
         {
             string file = Path.GetFileNameWithoutExtension(fileName);
             string race = string.Empty;
@@ -72,20 +75,20 @@ namespace XYCoordinates
                                 if (TextToFind == "YES")
                                 {
                                     YesCount++;
-                                    AddRowsToArrowDumpDT(textData, i, file);
+                                    await AddRowsToArrowDumpDTAsync(textData, i, file);
                                     TextToFind = "NO";
                                     i++;
                                 }
                                 else if (TextToFind == "NO")
                                 {
                                     NoCount++;
-                                    AddRowsToArrowDumpDT(textData, i, file);
+                                    await AddRowsToArrowDumpDTAsync(textData, i, file);
                                     TextToFind = "YES";
                                     i++;
                                 }
                                 else
                                 {
-                                    AddRowsToArrowDumpDT(textData, i, file);
+                                    await AddRowsToArrowDumpDTAsync(textData, i, file);
                                     break;
                                 }
                             }                            
@@ -101,21 +104,24 @@ namespace XYCoordinates
             return ArrowDumpDt;
         }
 
-        private void AddRowsToArrowDumpDT(PdfTextData textData, int i, string file)
+        private async Task AddRowsToArrowDumpDTAsync(PdfTextData textData, int i, string file)
         {
-            ArrowDumpDt.Rows.Add();
-            ArrowDumpDt.Rows[i]["SortKey"] = i + 1;
-            ArrowDumpDt.Rows[i]["BallotImage"] = file;
-            if (textData.Position.X < 412)
+            await Task.Run(() =>
             {
-                ArrowDumpDt.Rows[i]["XCoord"] = 412;
-            }
-            else if (textData.Position.X > 412 && textData.Position.X < 630)
-            {
-                ArrowDumpDt.Rows[i]["XCoord"] = 630;
-            }
+                ArrowDumpDt.Rows.Add();
+                ArrowDumpDt.Rows[i]["SortKey"] = i + 1;
+                ArrowDumpDt.Rows[i]["BallotImage"] = file;
+                if (textData.Position.X < 412)
+                {
+                    ArrowDumpDt.Rows[i]["XCoord"] = 412;
+                }
+                else if (textData.Position.X > 412 && textData.Position.X < 630)
+                {
+                    ArrowDumpDt.Rows[i]["XCoord"] = 630;
+                }
 
-            ArrowDumpDt.Rows[i]["YCoord"] = Math.Round((decimal)textData.Position.Y + 12);
+                ArrowDumpDt.Rows[i]["YCoord"] = Math.Round((decimal)textData.Position.Y + 12);
+            });            
         }
 
 

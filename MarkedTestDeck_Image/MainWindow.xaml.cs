@@ -14,20 +14,20 @@ using System.Data;
 namespace MarkedTestDeck_Image
 {
     #region ENUMS
-    public enum ProcessOptions
+    public enum ProcessOptions : byte
     {
         ByCard,
         ByPct,
         All
     }
-    public enum LARotation
+    public enum LARotation : byte
     {
         Two,
         Three,
         Five,
         Max
     }
-    public enum TestDeckIlk
+    public enum TestDeckIlk : byte
     {
         LA,
         MULTI,
@@ -491,10 +491,11 @@ namespace MarkedTestDeck_Image
 
         #endregion Window Buttons
 
+
         #region Window Attributes
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {            
-            PopulateCountyIdToComboBox();
+            //PopulateCountyIdToComboBox();
         }
 
         private void radLA_Checked(object sender, RoutedEventArgs e)
@@ -511,7 +512,14 @@ namespace MarkedTestDeck_Image
         {
             IVSDataAccess data = new IVSDataAccess();
 
-            foreach (var item in data.AddCustomersToList())
+            List<string> customerList = new List<string>();
+
+            customerList = data.AddCustomersToList();
+
+            if (customerList == null)
+                return;
+
+            foreach (var item in customerList)
             {
                 cboCountyName.Items.Add(item);
             }
